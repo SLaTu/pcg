@@ -54,11 +54,13 @@ void subToVect(double *V1, double *V2, unsigned int max);
 void addVects(double *V1, double *V2, double *Vres, unsigned int max);
 void subtVects(double *V1, double *V2, double *result, unsigned int max);
 double getvalue_mat(unsigned int row, unsigned int col, mat_t *mat);
+double getvalue_matCSC(unsigned int row, unsigned int col, mat_t *mat);
 
 
 
 void pmultMatVect(double *tmp, double *vect, mat_t *mat);
 void pmultMatVectCSC(double *tmp, double *vect, mat_t *mat);
+void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits, unsigned int nthreads);
 void pmultMatVect_DUMM(double *tmp, mat_t *mat);
 void pmultMatVectCSC_DUMM(double *tmp, mat_t *mat);
 void pzerovect(double *vect, unsigned int max);

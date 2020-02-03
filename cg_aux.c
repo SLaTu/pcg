@@ -633,3 +633,67 @@ void transposeCSC(mat_t *G, mat_t *Gtransp){
 	}
 	
 }
+
+
+
+
+
+
+void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned int nthreads){
+	
+	unsigned int i, j, k;
+	unsigned int counter = 0;
+	unsigned int sum = 0;
+	unsigned int *contr = calloc(Gtransp->size, sizeof(unsigned int));
+	unsigned int *rowlim = calloc(nthreads + 1, sizeof(unsigned int));
+	unsigned int *counterrows = calloc(nthreads, sizeof(unsigned int));
+	unsigned int elems = (unsigned int) ceil(((double) Gtransp->nnz) / ((double) nthreads));
+	
+	for (i = 0; i < Gtransp->nnz; i++){contr[Gtransp->rows[i]] += 1;}
+	
+	for (i = 0; i < Gtransp->size; i++){
+		sum += contr[i];
+		if ((sum >= elems) || i == (Gtransp->size - 1)){
+			counter++;
+			rowlim[counter] = i;
+			limits[counter] = limits[counter - 1] + sum;
+			sum = 0;
+		}
+	}
+	
+// 	for (i = 0; i < (nthreads + 1); i++) printf("%u, ", limits[i]);
+// 	printf("\n");
+// 	
+// 	for (i = 0; i < (nthreads + 1); i++) printf("%u, ", rowlim[i]);
+// 	printf("\n");
+	
+	counter = 0;
+	
+	for (i = 0; i < Gtransp->size; i++){
+		for (j = Gtransp->cols[i]; j < Gtransp->cols[i + 1]; j++){
+			for (k = 0; k < nthreads; k++){
+				if (Gtransp->rows[j] <= rowlim[k + 1]){
+					GtranspCOO->values[limits[k] + counterrows[k]] = Gtransp->values[j];
+					GtranspCOO->cols[limits[k] + counterrows[k]] = i;
+					GtranspCOO->rows[limits[k] + counterrows[k]] = Gtransp->rows[j];
+					counterrows[k] += 1;
+					break;
+				}
+			}
+		}
+	}
+	
+// 	for (i = 0; i < (nthreads); i++) printf("%u, ", counterrows[i]);
+// 	printf("\n");
+	
+	
+	
+// 	for (i = 0; i < Gtransp->nnz; i++) printf("%u\t%u\t%lf\t\t\t%lf\n", GtranspCOO->rows[i], GtranspCOO->cols[i], GtranspCOO->values[i], getvalue_matCSC(GtranspCOO->rows[i], GtranspCOO->cols[i], Gtransp));
+	
+	
+	free(counterrows);
+	free(rowlim);
+	free(contr);
+}
+	
+	

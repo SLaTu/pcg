@@ -75,6 +75,18 @@ double getvalue_mat(unsigned int row, unsigned int col, mat_t *mat){
 }
 
 
+double getvalue_matCSC(unsigned int row, unsigned int col, mat_t *mat){
+
+	double value = 0.0;
+	unsigned int i = 0;
+
+	for (i = mat->cols[col]; i < mat->cols[col + 1]; i++){
+		if (mat->rows[i] == row) value = mat->values[i];
+	}
+	return value;
+}
+
+
 
 
 
@@ -129,6 +141,35 @@ void pmultMatVectCSC(double *tmp, double *vect, mat_t *mat){
 		}
 	}
 }
+
+
+
+
+
+
+
+void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits, unsigned int nthreads){
+	int i = 0, j = 0;
+	#pragma omp parallel for schedule(runtime) private(j, i)
+	for (i = 0; i < nthreads; i++){
+		for (j = limits[i]; j < limits[i + 1]; j++){
+			tmp[mat->rows[j]] += mat->values[j] * vect[mat->cols[j]];
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

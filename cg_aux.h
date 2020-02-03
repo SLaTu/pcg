@@ -23,5 +23,6 @@ double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error);
 void transpose(mat_t *G, mat_t *Gtransp);
 void transposeCSC(mat_t *G, mat_t *Gtransp);
 mat_t *inverseD(mat_t *mat);
+void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned int nthreads);
 
 #endif // __CG_AUX_H__

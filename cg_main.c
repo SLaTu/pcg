@@ -375,6 +375,20 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	printf("\nTransposing Time: %lf\n\n", start_usec - end_usec);
 	
 	
+	mat_t *GtranspCOO = malloc(sizeof(mat_t));
+	GtranspCOO->size = G->size;
+	GtranspCOO->nnz = G->nnz;
+	GtranspCOO->values = malloc(G->nnz*sizeof(double));
+	GtranspCOO->cols = malloc(G->nnz*sizeof(unsigned int));
+	GtranspCOO->rows = malloc(G->nnz*sizeof(unsigned int));
+	
+	
+	unsigned int nthreads = omp_get_max_threads(); 
+	unsigned int *limits = calloc(nthreads + 1, sizeof(unsigned int));
+	
+	CSCtoCOO(Gtransp, GtranspCOO, limits, nthreads);
+	
+	
 	for (int m = 0; m < reps; m++){														/* REPEAT LOOP reps TIMES */
 		for (i = 0; i < A->size; i++){
 			r[i] = 0.0;
@@ -460,7 +474,8 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 			tmult += omp_get_wtime() - ttmp;
 			pzerovect(s, A->size);
 			ttmp = omp_get_wtime();
-			pmultMatVectCSC(s, tmp, Gtransp);
+// 			pmultMatVectCSC(s, tmp, Gtransp);
+			pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
 			ttransp += omp_get_wtime() - ttmp;
 			
 			d_old = d_new;															/* d_old = d_new */
