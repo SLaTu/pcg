@@ -564,19 +564,19 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
 	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
 	
-	G->nnz = gnoz->nnz;
-
-	G->values = realloc(G->values, G->nnz*sizeof(double));
-	G->cols = realloc(G->cols, G->nnz*sizeof(unsigned int));
-	
-	for (i = 0; i < G->nnz; i++){
-		G->values[i] = gnoz->values[i];
-		G->cols[i] = gnoz->cols[i];
-	}
-	
-	for (i = 0; i < G->size; i++){
-		G->rows[i] = gnoz->rows[i];
-	}
+// 	G->nnz = gnoz->nnz;
+// 
+// 	G->values = realloc(G->values, G->nnz*sizeof(double));
+// 	G->cols = realloc(G->cols, G->nnz*sizeof(unsigned int));
+// 	
+// 	for (i = 0; i < G->nnz; i++){
+// 		G->values[i] = gnoz->values[i];
+// 		G->cols[i] = gnoz->cols[i];
+// 	}
+// 	
+// 	for (i = 0; i < G->size; i++){
+// 		G->rows[i] = gnoz->rows[i];
+// 	}
 	
 	// 	4.
 	// 	Drop small entries in G and rescale

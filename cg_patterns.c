@@ -242,12 +242,12 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	pat_t *apower;
 	apower = malloc(sizeof(mat_t));
 	apower->rows = calloc((dim + 1), sizeof(unsigned int));
-	apower->cols = calloc((10 * patternpower * mat->nnz), sizeof(unsigned int));
+	apower->cols = calloc((20 * patternpower * mat->nnz), sizeof(unsigned int));
 	
 	pat_t *apowertemp;
 	apowertemp = malloc(sizeof(mat_t));
 	apowertemp->rows = calloc((dim + 1), sizeof(unsigned int));
-	apowertemp->cols = calloc((10 * patternpower * mat->nnz), sizeof(unsigned int));
+	apowertemp->cols = calloc((20 * patternpower * mat->nnz), sizeof(unsigned int));
 	
 	unsigned int *pospower = calloc(dim, sizeof(unsigned int));
 	unsigned int *poscol = calloc(dim, sizeof(unsigned int));
@@ -263,6 +263,20 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	for (i = 0; i < (dim + 1); i++) {
 		apower->rows[i] = mat->rows[i];
 	}
+	
+// 	int limone = 9990;
+// 	int limtwo = 10000;
+// 	
+// 	
+// 	for (i = limone; i < limtwo; i++){
+// 		for (j = apower->rows[i]; j < apower->rows[i + 1]; j++){
+// 			printf("%u, ", apower->cols[j]);
+// 		}
+// 		printf("\t%u\n", apower->rows[i + 1]);
+// 	}
+	
+	
+	
 	
 	/* POWER A to the patternpower */
 	
@@ -351,8 +365,6 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 		}
 	}
 	
-	expandpattern(mat->size, pattern, expanded_patt, xfinal);
-	
 	free(apower->cols);
 	free(apower->rows);
 	free(apower);
@@ -361,6 +373,26 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	free(apowertemp);
 	free(pospower);
 	free(poscol);
+	
+	
+// 	for (i = limone; i < limtwo; i++){
+// 		for (j = pattern->rows[i]; j < pattern->rows[i + 1]; j++){
+// 			printf("%u, ", pattern->cols[j]);
+// 		}
+// 		printf("\t%u\n", pattern->rows[i + 1]);
+// 	}
+	
+	
+	
+	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	
+	
+// 	for (i = limone; i < limtwo; i++){
+// 		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
+// 			printf("%u, ", expanded_patt->cols[j]);
+// 		}
+// 		printf("\t%u\n", expanded_patt->rows[i + 1]);
+// 	}
 	
 }
 

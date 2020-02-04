@@ -383,6 +383,8 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	GtranspCOO->rows = malloc(G->nnz*sizeof(unsigned int));
 	
 	
+// 	printf("%u\n\n", G->nnz);
+	
 	unsigned int nthreads = omp_get_max_threads(); 
 	unsigned int *limits = calloc(nthreads + 1, sizeof(unsigned int));
 	
