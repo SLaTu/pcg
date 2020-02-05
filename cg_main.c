@@ -309,23 +309,23 @@ double *cg_precond_diag(mat_t *A, double *x, double *b){
 double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 
 	unsigned int i = 0;
+	int m = 0;
 	double d_new = 0.0; 
 	double alpha = 0.0;
 	double d_old = 0.0;
 	double start_usec = 0.0, end_usec = 0.0;
-	double tlow = 100000.0;
 	
-	int sumiter = 0;
-	double sumtottime = 0.0;
-	double sumtimeiter = 0.0;
-	double sumtmult = 0.0;
-	double sumttransp = 0.0;
-	long long sumdcmnorm = 0;
-	long long sumxdcmnorm = 0;
-	long long sumdifmult = 0;
-	long long sumdcmtransp = 0;
-	long long sumxdcmtransp = 0;
-	long long sumdiftransp = 0;
+	int *sumiter = calloc(reps, sizeof(int));
+	double *sumtottime = calloc(reps, sizeof(double));
+	double *sumtimeiter = calloc(reps, sizeof(double));
+	double *sumtmult = calloc(reps, sizeof(double));
+	double *sumttransp = calloc(reps, sizeof(double));
+	long long *sumdcmnorm = calloc(reps, sizeof(long long));
+	long long *sumxdcmnorm = calloc(reps, sizeof(long long));
+	long long *sumdifmult = calloc(reps, sizeof(long long));
+	long long *sumdcmtransp = calloc(reps, sizeof(long long));
+	long long *sumxdcmtransp = calloc(reps, sizeof(long long));
+	long long *sumdiftransp = calloc(reps, sizeof(long long));
 	
 	double tmult = 0.0, ttransp = 0.0, ttmp = 0.0;
 	int retval, EventSet = PAPI_NULL;
@@ -334,19 +334,21 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	long long xdcmnorm = 0, xdcmtransp = 0;
 
 	retval = PAPI_library_init(PAPI_VER_CURRENT);
-	
 	if (retval != PAPI_VER_CURRENT){
 		fprintf(stderr, "PAPI library init error!\n");
 		exit(1);
 		
 	}
-
 	if (PAPI_thread_init((long unsigned int (*)(void)) omp_get_thread_num) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-	
 	if (PAPI_create_eventset(&EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	if (PAPI_add_event(EventSet, PAPI_L1_DCM) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-	
 	if (PAPI_start(EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	
+	omp_sched_t kind;
+	int chunk;
+	omp_get_schedule(&kind, &chunk);
+	
+	char buf_t[256];
 	
 	mat_t *G, *Gtransp;
 	
@@ -394,7 +396,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	free(Gtransp);
 	
 	
-	for (int m = 0; m < reps; m++){														/* REPEAT LOOP reps TIMES */
+	for (m = 0; m < reps; m++){														/* REPEAT LOOP reps TIMES */
 		for (i = 0; i < A->size; i++){
 			r[i] = 0.0;
 			d[i] = 0.0;
@@ -530,64 +532,66 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		fprintf(outmn, "%lli\n", dcmtransp - xdcmtransp);
 		
 		
+		sumiter[m] = i;
+		sumtottime[m] = end_usec;
+		sumtimeiter[m] = (end_usec)/((double) i);
+		sumtmult[m] = tmult/((double) i);
+		sumttransp[m] = ttransp/((double) i);
 		
-		if(end_usec < tlow){
-			sumiter = i;
-			sumtottime = end_usec;
-			sumtimeiter = (end_usec)/((double) i);
-			sumtmult = tmult/((double) i);
-			sumttransp = ttransp/((double) i);
-			
-			sumdcmnorm = dcmnorm;
-			sumxdcmnorm = xdcmnorm;
-			sumdifmult = dcmnorm - xdcmnorm;
-			sumdcmtransp = dcmtransp;
-			sumxdcmtransp = xdcmtransp;
-			sumdiftransp = dcmtransp - xdcmtransp;
-			
-			tlow = end_usec;
-		}
+		sumdcmnorm[m] = dcmnorm;
+		sumxdcmnorm[m] = xdcmnorm;
+		sumdifmult[m] = dcmnorm - xdcmnorm;
+		sumdcmtransp[m] = dcmtransp;
+		sumxdcmtransp[m] = xdcmtransp;
+		sumdiftransp[m] = dcmtransp - xdcmtransp;
+		
+		
+		
+		
+		snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
+		dump_info(buf_t, i, residuals, elapses, dnew);
 	}
 	
+	double *sumtottimeOrdered = calloc(reps, sizeof(double));
 	
+	m = floor(((double) reps)/2.0);
+	
+	for (i = 0; i < reps; i++) sumtottimeOrdered[i] = sumtottime[i];
+	
+	qsort(sumtottime, reps, sizeof(unsigned int), comp);
+	
+	for (i = 0; i < reps; i++){
+		if (sumtottime[i] == sumtottimeOrdered[m]) break;
+	}
 	
 	
 	fprintf(outmn, "\n%i\t", omp_get_max_threads());
 	fprintf(outmn, "%u\t", percentpattern);
 	fprintf(outmn, "%u\t", G->nnz);
-	fprintf(outmn, "%u\t", (int) floor(((double) sumiter) / ((double) meannums)));
+	fprintf(outmn, "%u\t", (int) floor(((double) sumiter[m]) / ((double) meannums)));
 	
 	
 	
-	fprintf(outmn, "%lf\t", sumtottime / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumtimeiter / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumtmult / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumttransp / ((double) meannums));
+	fprintf(outmn, "%lf\t", sumtottime[i] / ((double) meannums));
+	fprintf(outmn, "%lf\t", sumtimeiter[i] / ((double) meannums));
+	fprintf(outmn, "%lf\t", sumtmult[i] / ((double) meannums));
+	fprintf(outmn, "%lf\t", sumttransp[i] / ((double) meannums));
 	
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmnorm) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmnorm) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdifmult) / ((double) meannums)));
+	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmnorm[i]) / ((double) meannums)));
+	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmnorm[i]) / ((double) meannums)));
+	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdifmult[i]) / ((double) meannums)));
 	
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmtransp) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmtransp) / ((double) meannums)));
-	fprintf(outmn, "%lli\n\n", (long long) floor(((double) sumdiftransp) / ((double) meannums)));
+	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmtransp[i]) / ((double) meannums)));
+	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmtransp[i]) / ((double) meannums)));
+	fprintf(outmn, "%lli\n\n", (long long) floor(((double) sumdiftransp[i]) / ((double) meannums)));
 	
-	
-	
-	
-	omp_sched_t kind;
-	int chunk;
-	omp_get_schedule(&kind, &chunk);
-	
-	char buf_t[256];
-	snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/pcg_%s_%d_%d.log", argv, kind, chunk);
-	dump_info(buf_t, i, residuals, elapses, dnew);
 	
 	
 	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	
 	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(residuals); free(elapses); free(dnew);
-
+	
+	free(sumiter); free(sumtottime); free(sumtimeiter); free(sumtmult); free(sumttransp); free(sumdcmnorm); free(sumxdcmnorm); free(sumdifmult); free(sumdcmtransp); free(sumxdcmtransp); free(sumdiftransp); free(sumtottimeOrdered);
 	
 	return x;
 }

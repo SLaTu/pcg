@@ -10,6 +10,7 @@
 
 #include "cg_basics.h"
 
+int comp (const void *a, const void *b);
 void ltp(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);
 void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);

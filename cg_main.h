@@ -21,7 +21,7 @@ static inline __attribute__((always_inline)) void dump_info(char *name, int k, d
 {
 	FILE *log = fopen(name, "w");
 	for ( int i = 0; i <= k; i++ ) {
-		fprintf(log, "%d\t%.2E\t%.5lf\t%.5lf\n", i, residuals[i], elapse[i], dnew[i]);
+		fprintf(log, "%d\t%.8e\t%.8e\t%.8e\n", i, residuals[i], elapse[i], dnew[i]);
 	}
 	fclose(log);
 }
