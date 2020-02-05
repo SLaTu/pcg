@@ -142,9 +142,6 @@ void pmultMatVectCSC(double *tmp, double *vect, mat_t *mat){
 	}
 }
 
-
-
-
 void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits, unsigned int nthreads){
 	int i = 0, j = 0;
 	#pragma omp parallel for private(j, i)
@@ -154,10 +151,6 @@ void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits
 		}
 	}
 }
-
-
-
-
 
 void pmultMatVect_DUMM(double *tmp, mat_t *mat){
 	int i = 0, j = 0;
@@ -184,6 +177,22 @@ void pmultMatVectCSC_DUMM(double *tmp, mat_t *mat){
 			tmp[ind] += temp;
 		}
 	}
+}
+
+void pmultMatVectCOO_DUMM(double *tmp, mat_t *mat, unsigned int *limits, unsigned int nthreads){
+	int i = 0, j = 0;
+	#pragma omp parallel for private(j, i)
+	for (i = 0; i < nthreads; i++){
+		for (j = limits[i]; j < limits[i + 1]; j++){
+			tmp[mat->rows[j]] += mat->values[j] * mat->cols[j];
+		}
+	}
+}
+
+void pcopyvect(double *IN, double *OUT, unsigned int max){
+	unsigned int i = 0;
+	#pragma omp parallel for
+	for (i = 0; i < max; i++) OUT[i] = IN[i];
 }
 
 void pzerovect(double *vect, unsigned int max){

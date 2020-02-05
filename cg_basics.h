@@ -63,6 +63,8 @@ void pmultMatVectCSC(double *tmp, double *vect, mat_t *mat);
 void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits, unsigned int nthreads);
 void pmultMatVect_DUMM(double *tmp, mat_t *mat);
 void pmultMatVectCSC_DUMM(double *tmp, mat_t *mat);
+void pmultMatVectCOO_DUMM(double *tmp, mat_t *mat, unsigned int *limits, unsigned int nthreads);
+void pcopyvect(double *IN, double *OUT, unsigned int max);
 void pzerovect(double *vect, unsigned int max);
 double pmultVectVect(double *V1, double *V2, unsigned int max);
 void pscaleVect(double scalar, double *V1, double *tmp, unsigned int max);

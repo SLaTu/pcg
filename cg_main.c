@@ -7,7 +7,7 @@
 #include <omp.h>
 
 #define PI 3.14159265
-#define meannums 10
+#define meannums 1
 
 char matname[256];
 unsigned int imax;
@@ -313,7 +313,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	double alpha = 0.0;
 	double d_old = 0.0;
 	double start_usec = 0.0, end_usec = 0.0;
-	
+	double tlow = 100000.0;
 	
 	int sumiter = 0;
 	double sumtottime = 0.0;
@@ -358,6 +358,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 
 	double *s = (double*) aligned_alloc(64, A->size*sizeof(double));
 	double *r = (double*) aligned_alloc(64, A->size*sizeof(double));
+// 	double *rold = (double*) aligned_alloc(64, A->size*sizeof(double));
 	double *d = calloc(A->size, sizeof(double));
 	double *q = calloc(A->size, sizeof(double));
 	double *tmp = calloc(A->size, sizeof(double));
@@ -390,6 +391,8 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	CSCtoCOO(Gtransp, GtranspCOO, limits, nthreads);
 	
+	free(Gtransp);
+	
 	
 	for (int m = 0; m < reps; m++){														/* REPEAT LOOP reps TIMES */
 		for (i = 0; i < A->size; i++){
@@ -410,13 +413,13 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		pmultMatVect(tmp, r, G);														/* GENERATE INITIAL X */
-		pmultMatVectCSC(x, tmp, Gtransp);
+		pmultMatVectCOO(x, tmp, GtranspCOO, limits, nthreads);
 		
 		pmultMatVect(tmp, x, A);														/* r = b - Ax */
 		psubtVects(b, tmp, r, A->size);
 		
 		pmultMatVect(tmp, r, G);														/* d = M⁻1*r */
-		pmultMatVectCSC(d, tmp, Gtransp);
+		pmultMatVectCOO(d, tmp, GtranspCOO, limits, nthreads);
 		
 		/* GET CACHE MISSES */
 		/* DUMMY OPS TO GET xdcmnorm */
@@ -428,7 +431,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		xdcmnorm = values[0];
 		zerovect(dumm, A->size);
 		PAPI_reset(EventSet);
-		pmultMatVectCSC_DUMM(dumm, Gtransp);
+		pmultMatVectCOO_DUMM(dumm, GtranspCOO, limits, nthreads);
 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 		xdcmtransp = values[0];
 		
@@ -444,7 +447,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		dcmnorm = values[0];
 		pzerovect(s, A->size);
 		PAPI_reset(EventSet);
-		pmultMatVectCSC(s, tmp, Gtransp);
+		pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 		dcmtransp = values[0];
 		
@@ -476,7 +479,6 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 			tmult += omp_get_wtime() - ttmp;
 			pzerovect(s, A->size);
 			ttmp = omp_get_wtime();
-// 			pmultMatVectCSC(s, tmp, Gtransp);
 			pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
 			ttransp += omp_get_wtime() - ttmp;
 			
@@ -529,21 +531,21 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		
-		
-		if((m >= (reps - meannums)) & (m < reps)){
-			sumiter += i;
-			sumtottime += end_usec;
-			sumtimeiter += (end_usec)/((double) i);
-			sumtmult += tmult/((double) i);
-			sumttransp += ttransp/((double) i);
+		if(end_usec < tlow){
+			sumiter = i;
+			sumtottime = end_usec;
+			sumtimeiter = (end_usec)/((double) i);
+			sumtmult = tmult/((double) i);
+			sumttransp = ttransp/((double) i);
 			
-			sumdcmnorm += dcmnorm;
-			sumxdcmnorm += xdcmnorm;
-			sumdifmult += dcmnorm - xdcmnorm;
-			sumdcmtransp += dcmtransp;
-			sumxdcmtransp += xdcmtransp;
-			sumdiftransp += dcmtransp - xdcmtransp;
+			sumdcmnorm = dcmnorm;
+			sumxdcmnorm = xdcmnorm;
+			sumdifmult = dcmnorm - xdcmnorm;
+			sumdcmtransp = dcmtransp;
+			sumxdcmtransp = xdcmtransp;
+			sumdiftransp = dcmtransp - xdcmtransp;
 			
+			tlow = end_usec;
 		}
 	}
 	
@@ -584,7 +586,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	
-	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(Gtransp); free(residuals); free(elapses); free(dnew);
+	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(residuals); free(elapses); free(dnew);
 
 	
 	return x;
