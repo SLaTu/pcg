@@ -232,13 +232,13 @@ void psubToVect(double *V1, double *V2, unsigned int max){
 void paddVects(double *V1, double *V2, double *Vres, unsigned int max){
 	int i = 0;
 	#pragma omp parallel for
-	for (i = 0; i < max; i++){Vres[i] = 0.0; Vres[i] = V1[i] + V2[i];}
+	for (i = 0; i < max; i++){Vres[i] = V1[i] + V2[i];}
 }
 
 void psubtVects(double *V1, double *V2, double *Vres, unsigned int max){
 	int i = 0;
 	#pragma omp parallel for
-	for (i = 0; i < max; i++){Vres[i] = 0.0; Vres[i] = V1[i] - V2[i];}
+	for (i = 0; i < max; i++){Vres[i] = V1[i] - V2[i];}
 }
 
 void pequalvects(double *V1, double *V2, unsigned int max){

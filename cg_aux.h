@@ -16,6 +16,7 @@
 
 int cg_config(int argc, char *argv[]);  
 int cg_setup(char *matname, mat_t *mat);
+int readrhs(double *b, char* matname, unsigned int size);
 void report(mat_t *A, double *r, double *b, unsigned int i, double start_usec, double end_usec);
 void reperror(mat_t *A, double *r, double *b, unsigned int i);
 void precond(mat_t *mat, mat_t *G, double *xfinal);

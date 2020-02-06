@@ -20,6 +20,7 @@ unsigned int percentpattern;
 unsigned int patternpower;
 unsigned int bsize;
 unsigned int reps;
+int rhs;
 
 /*
  * 
@@ -43,10 +44,20 @@ int main(int argc, char *argv[]){
 		return 2;
 	}
 	
-	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	
 	double *b = calloc(A->size, sizeof(double));
 	double *x = calloc(A->size, sizeof(double));
+	
+// 	if (rhs == 1){
+		readrhs(b, argv[1], A->size);
+// 	}
+// 	else {
+// 		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/18000);
+// 		pmultMatVect(b, x, A);
+// 		for (j = 0; j < A->size; j++) x[j] = 0.0;
+// 	}
+	
+	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
 	
 	
 	printf("NNZ:\t%u\n", A->nnz);
@@ -60,10 +71,6 @@ int main(int argc, char *argv[]){
 		printf("Could not open writing file.");
 		return 0;
 	}
-	
-	for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/18000);
-	pmultMatVect(b, x, A);
-	for (j = 0; j < A->size; j++) x[j] = 0.0;
 
 	switch ( mode ) {
 		case 1: 
@@ -82,6 +89,9 @@ int main(int argc, char *argv[]){
 			printf("No algorithm selected.\n");
 			break;
 	}
+	
+	for (j = 196045; j < 196055; j++) printf("%lf, ", x[j]);
+	printf("\n");
 
 	
 	fclose (outmn);
@@ -304,6 +314,10 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 	char buf_t[256];
 	snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/diagpcg_%s.log", argv);
 	dump_info(buf_t, i, residuals, elapses, dnew);
+	
+	
+// 	for (i = 0; i < A->size; i++) printf("%.4e, ", x[i]);
+	
 		
 	free(d); free(r); free(q); free(s); free(D_1); free(tmp);
 	return x;

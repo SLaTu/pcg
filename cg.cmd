@@ -3,8 +3,10 @@
 #SBATCH --workdir=.
 #SBATCH --output=out_%j.out
 #SBATCH --error=out_%j.err
+#SBATCH --cpus-per-task=48
 #SBATCH --ntasks=1
-#SBATCH --time=00:10:00
+#SBATCH --time=01:00:00
+#SBATCH --qos=debug
  
 module load python
 module load gcc
@@ -14,117 +16,15 @@ module load mkl
 
 make
 
-export OMP_NUM_THREADS=1
+export OMP_NUM_THREADS=48
+
+# 0.091211, 0.118150, 1.000000, 0.090771, 0.095210, 0.090771, 0.239770, 0.738339, 0.160703, 0.129669,
+# ./cg.out ALYA1.txt 1 100 10000 1E-08 2
 
 
-./cg.out FULL_FEM_250000_500.mtx 100 10000 1E-08 2
-./cg.out FULL_FEM3D_216000_60.mtx 100 10000 1E-08 2
-./cg.out FULL_FEM3D_250047_63.mtx 100 10000 1E-08 2
+./cg.out ALYA1.txt 1 100 10000 1E-08 3 3 0 1
+./cg.out ALYA1.txt 1 100 10000 1E-08 3 3 0 2
 
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 0 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 50 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 100 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 200 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 300 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 400 1
-# 
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 0 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 50 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 100 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 200 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 300 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 2 1E-08 400 2
-# 
-# 
-# 
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 0 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 50 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 100 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 200 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 300 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 400 1
-# 
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 0 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 50 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 100 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 200 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 300 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 2 1E-08 400 2
-# 
-# 
-# 
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 0 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 50 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 100 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 200 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 300 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 400 1
-# 
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 0 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 50 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 100 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 200 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 300 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 2 1E-08 400 2
-
-
-
-
-
-
-
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 0 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 50 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 100 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 200 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 300 1
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 400 1
-# 
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 0 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 50 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 100 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 200 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 300 1
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 400 1
-# 
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 0 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 50 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 100 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 200 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 300 1
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 400 1
-# 
-# 
-# 
-# 
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 0 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 50 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 100 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 200 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 300 2
-# python3 run_cg.py FULL_FEM_250000_500.mtx 100 1E-08 400 2
-# 
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 0 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 50 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 100 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 200 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 300 2
-# python3 run_cg.py FULL_FEM3D_250047_63.mtx 100 1E-08 400 2
-# 
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 0 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 50 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 100 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 200 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 300 2
-# python3 run_cg.py FULL_FEM3D_216000_60.mtx 100 1E-08 400 2
-
-
-
-
-
-
-
-
-
+./cg.out ALYA1.txt 1 100 10000 1E-08 3 3 100 1
 
 

@@ -2,6 +2,7 @@
 #include "cg_aux.h"
 
 extern char matname[256];
+extern int rhs;
 extern int mode;
 extern int imax;
 extern double err;
@@ -14,56 +15,50 @@ extern unsigned int reps;
 
 int cg_config(int argc, char *argv[]) {
 
-	if (argc < 6){
+	if (argc < 7){
 		printf("\nAdd as arguments a matrix file, block size, maximum iterations, tolerance (<1) and mode. For mode 3 (PCG) add PCG pattern. For PCG pattern 3 add power and percentage. For PCG pattern 4 add percentage.\n\n");
 		return 1;
 	}
 
-	reps = atoi(argv[2]);
-	imax = atoi(argv[3]);
-	err = atof(argv[4]);
-	mode = atoi(argv[5]);
+	snprintf(matname, sizeof matname, "%s", argv[1]);
+	rhs = atoi(argv[2]);
+	reps = atoi(argv[3]);
+	imax = atoi(argv[4]);
+	err = atof(argv[5]);
+	mode = atoi(argv[6]);
+	
 
-	if ((mode == 3) && (argc >= 7)) {
+	if ((mode == 3) && (argc >= 8)) {
 		patternmode = atoi(argv[6]);
 		
-		if ((patternmode == 4) && (argc >= 8)) {
-			percentpattern = atoi(argv[7]);
+		if ((patternmode == 4) && (argc >= 9)) {
+			percentpattern = atoi(argv[8]);
 		}
-		else if ((patternmode == 4) && (argc < 8)) {
+		else if ((patternmode == 4) && (argc < 9)) {
 			fprintf(stderr, "\nError: Add percentage of elements to add with PCG 4 (e.g.: 100).\n\n");
 			return 1;
 		}
 		
 		
-		if ((patternmode == 3) && (argc >= 9)) {
-			percentpattern = atoi(argv[7]);
-			patternpower = atoi(argv[8]);
+		if ((patternmode == 3) && (argc >= 10)) {
+			percentpattern = atoi(argv[8]);
+			patternpower = atoi(argv[9]);
 		}
-		else if ((patternmode == 3) && (argc < 9)) {
+		else if ((patternmode == 3) && (argc < 10)) {
 			fprintf(stderr, "\nError: Add percentage of elements to add with PCG 3 (e.g.: 100) and pattern power (e.g.: 2).\n\n");
 			return 1;
 		}
 	}
-	else if ((mode == 3) && (argc < 7)) {
+	else if ((mode == 3) && (argc < 8)) {
 		patternmode = 0;
 	}
-
+	
 	if (mode != 3) {patternmode = 0; percentpattern = 0; patternpower = 0;}
-
 	
-	
-	snprintf(matname, sizeof matname, "../Inputs/Matrices/%s", argv[1]);
-	fp = argc > 1 ? fopen (matname, "r") : stdin;
-	if (!fp){
-		fprintf(stderr, "Error: file open failed '%s'.\n\n", argv[1]);
-		return 1;
-	}
-
-	printf("\nMatrix:\t%s\n", argv[1]);
+	printf("\nMatrix:\t%s\n", matname);
 	printf("Imax:\t%d\n", imax);
 	printf("Error:\t%.2e\n", err);
-
+	
 	return 0;
 }
 
@@ -77,6 +72,15 @@ int cg_setup(char* matname, mat_t *mat){
 	unsigned int j = 0, i = 0;
 	unsigned int rowvalue = 0, cmp = 0, acum = 0, position = 0, count = 0;
 	double num = 0;
+	
+	char buff[256];
+	
+	snprintf(buff, sizeof buff, "../Inputs/Matrices/%s", matname);
+	fp = fopen (buff, "r");
+	if (!fp){
+		fprintf(stderr, "Error: file open failed '%s'.\n\n", matname);
+		return 1;
+	}
 
 	while ((read = getline(&line, &len, fp)) != -1){
 
@@ -95,11 +99,11 @@ int cg_setup(char* matname, mat_t *mat){
 				mat->rows = malloc((mat->size + 1) * sizeof(unsigned int));
 				mat->rows[0] = 0;
 			}
-			else if (count == 3){
+			else if (count == 4){
 				mat->cols[i/3 - 1] = (unsigned int) num - 1;
 
 			}
-			else if (count == 4){
+			else if (count == 3){
 				rowvalue = num - 1;
 
 				if ((rowvalue-cmp) > 1){
@@ -133,6 +137,67 @@ int cg_setup(char* matname, mat_t *mat){
 
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
+	
+	
+	
+	
+	for (i = 0; i < 10; i++) printf("%lf, ", mat->values[i]);
+	printf("\n");
+	for (i = 0; i < 10; i++) printf("%i, ", mat->cols[i]);
+	printf("\n");
+	for (i = 0; i < 10; i++) printf("%i, ", mat->rows[i]);
+	printf("\n");
+	
+	
+
+	return 0;
+}
+
+
+int readrhs(double *b, char* matname, unsigned int size){
+
+	char *line = NULL;
+	size_t len = 0;
+	ssize_t read;
+	unsigned int i = 0;
+	unsigned int index = 0;
+	double num = 0;
+	
+	char buff[256];
+	unsigned int count = 0;
+	
+	snprintf(buff, sizeof buff, "../Inputs/RHS/RHS_%s", matname);
+	fp = fopen (buff, "r");
+	if (!fp){
+		fprintf(stderr, "Error: file open failed 'RHS_%s'.\n\n", matname);
+		return 1;
+	}
+	
+	while ((read = getline(&line, &len, fp)) != -1){
+		num = 0;
+		while(fscanf(fp, "%lf", &num) == 1){
+			if (count == 0){
+				if ((unsigned int) num == size) {printf("\nOK\n");}
+				else {return 1;}
+			}
+			else if (count == 1){}
+			else if (count == 2){
+				index = (unsigned int) num;
+			}
+			else if (count == 3){
+				b[index - 1] = (double) num;
+			}
+			else {}
+			count++;
+			if (count == 4) count = 2;
+		}
+	}
+
+	if (fp != stdin) fclose (fp);   /* close file if not stdin */
+	if (line) free(line);
+	
+	for (i = 196045; i < 196055; i++) printf("%lf, ", b[i]);
+	printf("\n");
 
 	return 0;
 }
