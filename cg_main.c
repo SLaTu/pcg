@@ -70,8 +70,9 @@ int main(int argc, char *argv[]){
 			printf("Mode:\tBase CG\n");
 			x = cg_base(A, x, b);
 			break;
+		case 2:
 			printf("Mode:\tD⁻1 Preconditioned CG\n");
-			x = cg_precond_diag(A, x, b);
+			x = cg_precond_diag(A, x, b, argv[1]);
 			break;
 		case 3: 
 			printf("Mode:\tPCG\n");
@@ -194,20 +195,23 @@ double *cg_base(mat_t *A, double *x, double *b){
  * 
  */
 
-double *cg_precond_diag(mat_t *A, double *x, double *b){
+double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 
 	int i = 0;
 	double *d;
 	double *r;
 	double d_new = 0.0; 
-	double d_0 = 0.0;
+	double d_old = 0.0;
 	double *q;
 	double *s;
 	double alpha = 0.0;
-	double d_old = 0.0;
 	double beta = 0.0;
 	double start_usec = 0.0, end_usec = 0.0;
 	double *tmp;
+	
+	double *residuals = malloc(imax * sizeof(double));
+	double *elapses = malloc(imax * sizeof(double));
+	double *dnew = malloc(imax * sizeof(double));
 	
 	mat_t *D_1;
 	
@@ -227,73 +231,80 @@ double *cg_precond_diag(mat_t *A, double *x, double *b){
 	D_1 = inverseD(A);
 	
 	// r = b - A * x
-	multMatVect(tmp, x, A);
-	subtVects(b, tmp, r, A->size);
+	pmultMatVect(tmp, x, A);
+	psubtVects(b, tmp, r, A->size);
 	
 	// d = M^-1 * r      // MODIFY
 	
-	multMatVect(d, r, D_1); // instead of A D^-1
+	pmultMatVect(d, r, D_1); // instead of A D^-1
 	
 	// dnew = r^T * d
-	d_new = multVectVect(r, d, A->size);
-	d_0 = d_new;
-
-	start_usec = omp_get_wtime();
-	while ((i < imax)&&(d_new > err * err * d_0)){
+	d_new = multVectVect(d, r, A->size);
+	double norm_b = multVectVect(b, b, A->size);
+	double norm_r = sqrt(multVectVect(r, r, A->size));
+	for (i = 0; i < imax; i++){
+		start_usec = omp_get_wtime();											/* BEGIN CG ITERATION */
 		
 		// q = A * d
-		multMatVect(q, d, A);
+		pmultMatVect(q, d, A);
 		
 		// alpha = dnew / (d^T * q)
-		alpha = d_new / multVectVect(d, q, A->size);
+		alpha = d_new / pmultVectVect(d, q, A->size);
 		
 		// x = x + alpha * d
-		scaleVect(alpha, d, tmp, A->size);
-		addToVect(x, tmp, A->size);
+		pscaleVect(alpha, d, tmp, A->size);
+		paddToVect(x, tmp, A->size);
 		
 		// 
 		if (i%50 == 0){
 			// r = b - A * x
-			multMatVect(tmp, x, A);
-			subtVects(b, tmp, r, A->size);
+			pmultMatVect(tmp, x, A);
+			psubtVects(b, tmp, r, A->size);
 		}
 		else {
 			// r = r - alpha * q
-			scaleVect(alpha, q, tmp, A->size);
-			subToVect(r, tmp, A->size);
+			pscaleVect(alpha, q, tmp, A->size);
+			psubToVect(r, tmp, A->size);
 		}
 		// PRECONDITIONING STEP -- s = M-1 * r -- s = G^t * G * r
 		// G = lower triangular part of matrix A^L 
 		
-		multMatVect(s, r, D_1); // instead of A M^-1
+		pmultMatVect(s, r, D_1); // instead of A M^-1
 		// dold = dnew
 		d_old = d_new;
 		
 		// dnew = r^T * s
-		d_new = multVectVect(r, s, A->size);
-		
+		d_new = pmultVectVect(r, s, A->size);
+		dnew[i] = d_new;
 		// beta = dnew / dold
 		beta = d_new/d_old;
 		
 		// d = s + beta * d
-		scaleVect(beta, d, tmp, A->size);
-		addVects(s, tmp, d, A->size);
+		pscaleVect(beta, d, tmp, A->size);
+		paddVects(s, tmp, d, A->size);
 		
-		//
-		if (i%200==0){
-			reperror(A, r, b, i);
+		end_usec = omp_get_wtime();
+		elapses[i] = end_usec - start_usec;
+		norm_r = sqrt(cblas_ddot(A->size, r, 1, r, 1));
+		residuals[i] = norm_r/norm_b;
+			
+		if ( isless(residuals[i], err) ) {
+			end_usec = 0.0;
+			for (int j = 0; j < i; j++) end_usec += elapses[j];
+			fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
+			break;
 		}
-		
-		i++;
 	}
-	end_usec = omp_get_wtime();
 	
-	report(A, r, b, i, start_usec, end_usec);
 	
-        fprintf(outmn, "%u\t", i);
-        fprintf(outmn, "%lf\t", end_usec - start_usec);
-        fprintf(outmn, "%lf\n", (end_usec - start_usec)/((double) i));
-
+	fprintf(outmn, "%u\t", i);
+	fprintf(outmn, "%lf\t", end_usec - start_usec);
+	fprintf(outmn, "%lf\n", (end_usec - start_usec)/((double) i));
+	
+	char buf_t[256];
+	snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/diagpcg_%s.log", argv);
+	dump_info(buf_t, i, residuals, elapses, dnew);
+		
 	free(d); free(r); free(q); free(s); free(D_1); free(tmp);
 	return x;
 }

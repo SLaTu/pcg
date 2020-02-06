@@ -27,7 +27,7 @@ static inline __attribute__((always_inline)) void dump_info(char *name, int k, d
 }
 
 double *cg_base(mat_t *A, double *x, double *b);  
-double *cg_precond_diag(mat_t *A, double *x, double *b);
+double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv);
 double *cg_precond(mat_t *A, double *x, double *b, char *argv);
 
 
