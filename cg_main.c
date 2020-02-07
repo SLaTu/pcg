@@ -39,38 +39,39 @@ int main(int argc, char *argv[]){
 	if (cg_config(argc, argv)){
 		return 1;
 	}
-	
 	if (cg_setup(matname, A)){
 		return 2;
 	}
-	
 	double *b = calloc(A->size, sizeof(double));
 	double *x = calloc(A->size, sizeof(double));
 	
-// 	if (rhs == 1){
+	fprintf(stdout, "RHS: %i\n", rhs);
+	
+	if (rhs == 1){
 		readrhs(b, argv[1], A->size);
-// 	}
-// 	else {
-// 		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/18000);
-// 		pmultMatVect(b, x, A);
-// 		for (j = 0; j < A->size; j++) x[j] = 0.0;
-// 	}
+	}
+	else {
+		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/18000);
+		pmultMatVect(b, x, A);
+		for (j = 0; j < A->size; j++) x[j] = 0.0;
+	}
 	
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	
-	
 	
 	printf("NNZ:\t%u\n", A->nnz);
 	printf("Size:\t%u\n\n", A->size);
 	
+	
 	char buf[256];
-	snprintf(buf, sizeof buf, "../Outputs/cg/DataCG/DATA_%s.txt", argv[1]);
+	snprintf(buf, sizeof buf, "../Outputs/cg/DataCG/DATA_%s", matname);
+	
 	
 	outmn = fopen(buf, "a");
 	if (outmn == NULL){
 		printf("Could not open writing file.");
 		return 0;
 	}
+	
 
 	switch ( mode ) {
 		case 1: 
@@ -90,11 +91,11 @@ int main(int argc, char *argv[]){
 			break;
 	}
 	
-	for (j = 196045; j < 196055; j++) printf("%lf, ", x[j]);
-	printf("\n");
+// 	for (j = 196045; j < 196055; j++) printf("%lf, ", x[j]);
+// 	printf("\n");
 
 	
-	fclose (outmn);
+	fclose(outmn);
 	free(A);
 	free(b);
 	free(x);
@@ -207,7 +208,7 @@ double *cg_base(mat_t *A, double *x, double *b){
 
 double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 
-	int i = 0;
+	int i = 0, j = 0;
 	double *d;
 	double *r;
 	double d_new = 0.0; 
@@ -218,6 +219,7 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 	double beta = 0.0;
 	double start_usec = 0.0, end_usec = 0.0;
 	double *tmp;
+	double sumelapses = 0.0;
 	
 	double *residuals = malloc(imax * sizeof(double));
 	double *elapses = malloc(imax * sizeof(double));
@@ -306,10 +308,12 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 		}
 	}
 	
+	for (j = 0; j <= i; j++) sumelapses += elapses[j]; 
+	
 	
 	fprintf(outmn, "%u\t", i);
-	fprintf(outmn, "%lf\t", end_usec - start_usec);
-	fprintf(outmn, "%lf\n", (end_usec - start_usec)/((double) i));
+	fprintf(outmn, "%lf\t", sumelapses);
+	fprintf(outmn, "%lf\n", sumelapses/((double) i));
 	
 	char buf_t[256];
 	snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/diagpcg_%s.log", argv);

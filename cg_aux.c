@@ -100,14 +100,11 @@ int cg_setup(char* matname, mat_t *mat){
 				mat->rows[0] = 0;
 			}
 			else if (count == 4){
-				mat->cols[i/3 - 1] = (unsigned int) num - 1;
-
+				mat->cols[((i - 1)/3) - 1] = (unsigned int) num - 1;
 			}
 			else if (count == 3){
 				rowvalue = num - 1;
-
 				if ((rowvalue-cmp) > 1){
-
 					for (j = cmp; j < rowvalue; j++){
 						position++;
 						mat->rows[position] = acum;
@@ -141,11 +138,11 @@ int cg_setup(char* matname, mat_t *mat){
 	
 	
 	
-	for (i = 0; i < 10; i++) printf("%lf, ", mat->values[i]);
+	for (i = 0; i < mat->nnz; i++) printf("%lf, ", mat->values[i]);
 	printf("\n");
-	for (i = 0; i < 10; i++) printf("%i, ", mat->cols[i]);
+	for (i = 0; i < mat->nnz; i++) printf("%i, ", mat->cols[i]);
 	printf("\n");
-	for (i = 0; i < 10; i++) printf("%i, ", mat->rows[i]);
+	for (i = 0; i < mat->size + 1; i++) printf("%i, ", mat->rows[i]);
 	printf("\n");
 	
 	
@@ -196,7 +193,7 @@ int readrhs(double *b, char* matname, unsigned int size){
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
 	
-	for (i = 196045; i < 196055; i++) printf("%lf, ", b[i]);
+	for (i = 0; i < size; i++) printf("%lf, ", b[i]);
 	printf("\n");
 
 	return 0;
