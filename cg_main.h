@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include "papi.h"
+// #include "papi.h"
 
 #include "cg_basics.h"
 #include "cg_aux.h"

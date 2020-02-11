@@ -10,6 +10,7 @@
 
 #include "cg_basics.h"
 
+int compd (const void *a, const void *b);
 int comp (const void *a, const void *b);
 void ltp(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);
 void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);

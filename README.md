@@ -13,8 +13,9 @@ TODO:
 
 To compile use make.
 To run use: 
-- ./cg.out [Matrix][Repetitions][IMax][Tol][CG Mode][Pattern Mode] (Optional) [Add Percentage][Power]
-- Matrix: .mtx file located in a folder in $../../Inputs/Matrices
+- ./cg.out [RHS][Matrix][Repetitions][IMax][Tol][CG Mode][Pattern Mode] (Optional) [Add Percentage][Power]
+- Matrix: .mtx file located in a folder in $../Inputs/Matrices/
+  - RHS: 1 to input RHS file located in $../Inputs/RHS/
   - Repetitions: Number of times the CG is performed. The higher the better results.
   - IMax: Maximum number of iterations.
   - Tol: Tolerance value (e.g.: 1E-08)

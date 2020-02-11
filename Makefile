@@ -1,4 +1,4 @@
-CC = gcc -O3 -std=c99 -std=gnu11
+CC = mpicc -O3 -std=c99 -std=gnu11
 BSC_CC = $(CC)
 
 MKL_LINK = -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_core -lmkl_sequential -lpthread

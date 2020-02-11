@@ -5,6 +5,12 @@ extern unsigned int percentpattern;
 extern unsigned int patternpower;
 extern FILE *outmn;
 
+int compd(const void * a, const void * b){
+  if (*(double*)a > *(double*)b) return 1;
+  else if (*(double*)a < *(double*)b) return -1;
+  else return 0;  
+}
+
 int comp (const void *a, const void *b){
 	int *x = (int *) a;
 	int *y = (int *) b;
@@ -13,7 +19,7 @@ int comp (const void *a, const void *b){
 
 void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
-	unsigned int i = 0, j = 0, k = 0, l = 0;
+	unsigned int i = 0, j = 0, k = 0, l = 0, m = 0;
 	unsigned int *elementstoadd = calloc(8, sizeof(unsigned int));
 	int cacheelements = 0;
 	unsigned int maxcacheelements = 0;
@@ -35,17 +41,26 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 
 
 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
+	
+	int lim1 = 100;
+	int lim2 = 110;
 
+// 	for (i = lim1; i < lim2; i++) printf("%u, ", pattern->rows[i] - pattern->rows[i - 1]);
+// 	printf("\n");
 
 	for(i = 0; i < dim; i++){
 
 		oldcachecol = -10;
 		oldcacheline = 0;
 		
+// 		if ((i > lim1) && (i < lim2)) printf("\n");
+		
 		for(j = pattern->rows[i]; j < pattern->rows[i + 1]; j++){
 			
 			cachecol = pattern->cols[j];
 			cacheline = (((long long) &xfinal[pattern->cols[j]]%64)/8);
+// 			if ((i > lim1) && (i < lim2)) printf("\n");
+// 			if ((i > lim1) && (i < lim2)) printf("CACHELINE: %lli\tCOLUMN: %u\t\t ", cacheline, cachecol);
 			
 			if (((cachecol - oldcachecol) > 7) || (((cachecol - oldcachecol) <= 7) && ((cacheline - oldcacheline) < 0))){
 				
@@ -82,7 +97,11 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 					}
 				}
 				
+				
+// 				if ((i > lim1) && (i < lim2)) for (m = 0; m < 8; m++) printf("%u ", elementstoadd[m]);
 				//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+				
+// 				if ((i > lim1) && (i < lim2)) printf("\t");
 				
 				calc += cacheelements * ((int) percentpattern); // si > 75 -> 1, si > 175 -> 2
 				maxcacheelements = 0;
@@ -105,12 +124,18 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 				for (k = initk; k < 8; k++){
 					if ((elementstoadd[k] == 1) && (addedelements < maxaddedelements) && (cacheadded < maxcacheelements) && ((k + pattern->cols[j] - (int) cacheline) < i) && ((k + pattern->cols[j] - (unsigned int) cacheline) >= 0)){
 						expanded_patt->cols[counterB] = pattern->cols[j] + k - (unsigned int) cacheline;
+						
+// 						if ((i > lim1) && (i < lim2)) printf("%u\t", expanded_patt->cols[counterB]);
+						
 						counterB++;
 						addedelements++;
 						cacheadded++;
 					}
 					else if ((elementstoadd[k] == 0) && ((k + pattern->cols[j] - (unsigned int) cacheline) <= i) && ((k + pattern->cols[j] - (unsigned int) cacheline) >= 0) && (pattern->cols[counterA] == (pattern->cols[j] + k - (unsigned int) cacheline))){
 						expanded_patt->cols[counterB] = pattern->cols[counterA];
+						
+// 						if ((i > lim1) && (i < lim2)) printf("|%u|\t", expanded_patt->cols[counterB]);
+						
 						counterA++;
 						counterB++;
 						
@@ -123,7 +148,16 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 	}
 	expanded_patt->nnz = expanded_patt->rows[dim];
 	
-	printf("%u -> ^%.2lf%%\n\n", expanded_patt->nnz, 100 * (((double) expanded_patt->nnz - (double) pattern->nnz)/ ((double) pattern->nnz)));
+// 	printf("\n");
+// 	printf("\n");
+// 	for (i = lim1 + 1; i < lim2; i++){
+// 		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
+// 			printf("%u,  ", expanded_patt->cols[j]);
+// 		}
+// 		printf("\n");
+// 	}
+	
+	printf("\n\n%u -> ^%.2lf%%\n\n", expanded_patt->nnz, 100 * (((double) expanded_patt->nnz - (double) pattern->nnz)/ ((double) pattern->nnz)));
 	
 	
 // 	fprintf(outmn, "%u\t", expanded_patt->nnz);

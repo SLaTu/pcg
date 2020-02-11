@@ -63,7 +63,7 @@ int main(int argc, char *argv[]){
 	
 	
 	char buf[256];
-	snprintf(buf, sizeof buf, "../Outputs/cg/DataCG/DATA_%s", matname);
+	snprintf(buf, sizeof buf, "../Outputs/cg/DataCG/DATA_%s_%.1e", matname, err);
 	
 	
 	outmn = fopen(buf, "a");
@@ -357,21 +357,21 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	long long *sumdiftransp = calloc(reps, sizeof(long long));
 	
 	double tmult = 0.0, ttransp = 0.0, ttmp = 0.0;
-	int retval, EventSet = PAPI_NULL;
-	long_long values[1];
+// 	int retval, EventSet = PAPI_NULL;
+// 	long_long values[1];
 	long long dcmnorm = 0, dcmtransp = 0;
 	long long xdcmnorm = 0, xdcmtransp = 0;
 
-	retval = PAPI_library_init(PAPI_VER_CURRENT);
-	if (retval != PAPI_VER_CURRENT){
-		fprintf(stderr, "PAPI library init error!\n");
-		exit(1);
-		
-	}
-	if (PAPI_thread_init((long unsigned int (*)(void)) omp_get_thread_num) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-	if (PAPI_create_eventset(&EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-	if (PAPI_add_event(EventSet, PAPI_L1_DCM) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-	if (PAPI_start(EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 	retval = PAPI_library_init(PAPI_VER_CURRENT);
+// 	if (retval != PAPI_VER_CURRENT){
+// 		fprintf(stderr, "PAPI library init error!\n");
+// 		exit(1);
+// 		
+// 	}
+// 	if (PAPI_thread_init((long unsigned int (*)(void)) omp_get_thread_num) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 	if (PAPI_create_eventset(&EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 	if (PAPI_add_event(EventSet, PAPI_L1_DCM) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 	if (PAPI_start(EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	
 	omp_sched_t kind;
 	int chunk;
@@ -455,32 +455,32 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		/* GET CACHE MISSES */
 		/* DUMMY OPS TO GET xdcmnorm */
 		
-		zerovect(tmp, A->size);
-		PAPI_reset(EventSet);
-		pmultMatVect_DUMM(tmp, G);
-		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-		xdcmnorm = values[0];
-		zerovect(dumm, A->size);
-		PAPI_reset(EventSet);
-		pmultMatVectCOO_DUMM(dumm, GtranspCOO, limits, nthreads);
-		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-		xdcmtransp = values[0];
+// 		zerovect(tmp, A->size);
+// 		PAPI_reset(EventSet);
+// 		pmultMatVect_DUMM(tmp, G);
+// 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 		xdcmnorm = values[0];
+// 		zerovect(dumm, A->size);
+// 		PAPI_reset(EventSet);
+// 		pmultMatVectCOO_DUMM(dumm, GtranspCOO, limits, nthreads);
+// 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 		xdcmtransp = values[0];
 		
 		
 		/* END DUMM */
 		/* GET TOTAL DCM */
 			
 
-		pzerovect(tmp, A->size);
-		PAPI_reset(EventSet);
-		pmultMatVect(tmp, r, G);
-		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-		dcmnorm = values[0];
-		pzerovect(s, A->size);
-		PAPI_reset(EventSet);
-		pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
-		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
-		dcmtransp = values[0];
+// 		pzerovect(tmp, A->size);
+// 		PAPI_reset(EventSet);
+// 		pmultMatVect(tmp, r, G);
+// 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 		dcmnorm = values[0];
+// 		pzerovect(s, A->size);
+// 		PAPI_reset(EventSet);
+// 		pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
+// 		if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 		dcmtransp = values[0];
 		
 		/* END GET CACHE MISSES */
 		
@@ -488,8 +488,9 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		d_new = multVectVect(d, r, A->size);										/* d_new = d * r */
 		double norm_b = multVectVect(b, b, A->size);
 		double norm_r = sqrt(multVectVect(r, r, A->size));
+		start_usec = omp_get_wtime();
 		for (i = 0; i < imax; i++){
-			start_usec = omp_get_wtime();											/* BEGIN CG ITERATION */
+// 			start_usec = omp_get_wtime();											/* BEGIN CG ITERATION */
 			
 			pmultMatVect(q, d, A);													/* q = A * d */
 			alpha = d_new / pmultVectVect(d, q, A->size);							/* alpha = d_new / (d * q) */
@@ -505,13 +506,13 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 				psubToVect(r, tmp, A->size);
 			}
 			
-			ttmp = omp_get_wtime();													/* Preconditioning residual */
+// 			ttmp = omp_get_wtime();													/* Preconditioning residual */
 			pmultMatVect(tmp, r, G);												/* s = M⁻1 * r    --->   s = G * G^t * r */
-			tmult += omp_get_wtime() - ttmp;
+// 			tmult += omp_get_wtime() - ttmp;
 			pzerovect(s, A->size);
-			ttmp = omp_get_wtime();
+// 			ttmp = omp_get_wtime();
 			pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
-			ttransp += omp_get_wtime() - ttmp;
+// 			ttransp += omp_get_wtime() - ttmp;
 			
 			d_old = d_new;															/* d_old = d_new */
 			d_new = pmultVectVect(s, r, A->size);									/* d_new = r * s */
@@ -519,23 +520,23 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 			pscaleVect(d_new/d_old, d, tmp, A->size);								/* d = s + (d_new/d_old) * d */
 			paddVects(s, tmp, d, A->size);
 																					/* END CG ITERATION */
-			end_usec = omp_get_wtime();
-			elapses[i] = end_usec - start_usec;
+// 			end_usec = omp_get_wtime();
+// 			elapses[i] = end_usec - start_usec;
 			norm_r = sqrt(cblas_ddot(A->size, r, 1, r, 1));
 			residuals[i] = norm_r/norm_b;
 			
 			if ( isless(residuals[i], err) ) {
-				end_usec = 0.0;
-				for (int j = 0; j < i; j++) end_usec += elapses[j];
-				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
+// 				end_usec = 0.0;
+// 				for (int j = 0; j < i; j++) end_usec += elapses[j];
+// 				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
 				break;
 			}
 		}
+		end_usec = omp_get_wtime();
 		
+// 		printf("tmult: %lf\t\tdcmmult: %.4e\txdcmmult: %.4e\nttransp: %lf\tdcmtransp: %.4e\txdcmtransp: %.4e\n\n", tmult/((double) i), (double) dcmnorm/((double) i), (double) xdcmnorm, ttransp/((double) i), (double) dcmtransp/((double) i), (double) xdcmtransp);
 		
-		printf("tmult: %lf\t\tdcmmult: %.4e\txdcmmult: %.4e\nttransp: %lf\tdcmtransp: %.4e\txdcmtransp: %.4e\n\n", tmult/((double) i), (double) dcmnorm/((double) i), (double) xdcmnorm, ttransp/((double) i), (double) dcmtransp/((double) i), (double) xdcmtransp);
-		
-		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i]);
+// 		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i]);
 		
 		
 		
@@ -546,8 +547,11 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		fprintf(outmn, "%u\t", G->nnz);
 		
 		fprintf(outmn, "%u\t", i);
-		fprintf(outmn, "%lf\t", end_usec);
-		fprintf(outmn, "%lf\t", (end_usec)/((double) i));
+// 		fprintf(outmn, "%lf\t", end_usec);
+// 		fprintf(outmn, "%lf\t", (end_usec)/((double) i));
+		
+		fprintf(outmn, "%lf\t", end_usec - start_usec);
+		fprintf(outmn, "%lf\t", (end_usec - start_usec)/((double) i));
 		
 		fprintf(outmn, "%lf\t", tmult/((double) i));
 		fprintf(outmn, "%lf\t", ttransp/((double) i));
@@ -562,8 +566,12 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		sumiter[m] = i;
-		sumtottime[m] = end_usec;
-		sumtimeiter[m] = (end_usec)/((double) i);
+// 		sumtottime[m] = end_usec;
+// 		sumtimeiter[m] = (end_usec)/((double) i);
+		
+		sumtottime[m] = end_usec - start_usec;
+		sumtimeiter[m] = (end_usec - start_usec)/((double) i);
+		
 		sumtmult[m] = tmult/((double) i);
 		sumttransp[m] = ttransp/((double) i);
 		
@@ -577,8 +585,8 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		
-		snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
-		dump_info(buf_t, i, residuals, elapses, dnew);
+// 		snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
+// 		dump_info(buf_t, i, residuals, elapses, dnew);
 	}
 	
 	double *sumtottimeOrdered = calloc(reps, sizeof(double));
@@ -587,9 +595,12 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	for (i = 0; i < reps; i++) sumtottimeOrdered[i] = sumtottime[i];
 	
-	qsort(sumtottime, reps, sizeof(unsigned int), comp);
+	qsort(sumtottimeOrdered, reps, sizeof(double), compd);
 	
 	for (i = 0; i < reps; i++){
+// 		printf("%lf, ", sumtottimeOrdered[i]);
+// 		printf("%lf, ", sumtottime[i]);
+// 		printf("\n");
 		if (sumtottime[i] == sumtottimeOrdered[m]) break;
 	}
 	
@@ -616,7 +627,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	
 	
-	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+// 	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	
 	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(residuals); free(elapses); free(dnew);
 	

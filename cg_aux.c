@@ -138,12 +138,12 @@ int cg_setup(char* matname, mat_t *mat){
 	
 	
 	
-	for (i = 0; i < mat->nnz; i++) printf("%lf, ", mat->values[i]);
-	printf("\n");
-	for (i = 0; i < mat->nnz; i++) printf("%i, ", mat->cols[i]);
-	printf("\n");
-	for (i = 0; i < mat->size + 1; i++) printf("%i, ", mat->rows[i]);
-	printf("\n");
+// 	for (i = 0; i < mat->nnz; i++) printf("%lf, ", mat->values[i]);
+// 	printf("\n");
+// 	for (i = 0; i < mat->nnz; i++) printf("%i, ", mat->cols[i]);
+// 	printf("\n");
+// 	for (i = 0; i < mat->size + 1; i++) printf("%i, ", mat->rows[i]);
+// 	printf("\n");
 	
 	
 
@@ -156,7 +156,6 @@ int readrhs(double *b, char* matname, unsigned int size){
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
-	unsigned int i = 0;
 	unsigned int index = 0;
 	double num = 0;
 	
@@ -193,8 +192,8 @@ int readrhs(double *b, char* matname, unsigned int size){
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
 	
-	for (i = 0; i < size; i++) printf("%lf, ", b[i]);
-	printf("\n");
+// 	for (i = 0; i < size; i++) printf("%lf, ", b[i]);
+// 	printf("\n");
 
 	return 0;
 }
