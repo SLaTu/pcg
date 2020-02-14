@@ -26,6 +26,20 @@ static inline __attribute__((always_inline)) void dump_info(char *name, int k, d
 	fclose(log);
 }
 
+static inline __attribute__((always_inline)) void print_pattern(char *name, mat_t *G)
+{
+	FILE *log = fopen(name, "w");
+	fprintf(log, "%i %i %i\n", G->size, G->size, G->nnz);
+	for ( int i = 0; i < G->size; i++ ) {
+		for(int j = G->rows[i]; j < G->rows[i + 1]; j++){
+			fprintf(log, "%i %i %lf\n", i, G->cols[j], G->values[j]);
+		}
+	}
+	fclose(log);
+}
+
+
+
 double *cg_base(mat_t *A, double *x, double *b);  
 double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv);
 double *cg_precond(mat_t *A, double *x, double *b, char *argv);

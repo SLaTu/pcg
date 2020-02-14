@@ -45,7 +45,7 @@ int main(int argc, char *argv[]){
 	double *b = calloc(A->size, sizeof(double));
 	double *x = calloc(A->size, sizeof(double));
 	
-	fprintf(stdout, "RHS: %i\n", rhs);
+	fprintf(stdout, "RHS:\t%i\n", rhs);
 	
 	if (rhs == 1){
 		readrhs(b, argv[1], A->size);
@@ -94,7 +94,6 @@ int main(int argc, char *argv[]){
 // 	for (j = 196045; j < 196055; j++) printf("%lf, ", x[j]);
 // 	printf("\n");
 
-	
 	fclose(outmn);
 	free(A);
 	free(b);
@@ -386,10 +385,10 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	G->size = A->size;
 	Gtransp->size = A->size;
 	
-
-	double *s = (double*) aligned_alloc(64, A->size*sizeof(double));
-	double *r = (double*) aligned_alloc(64, A->size*sizeof(double));
-// 	double *rold = (double*) aligned_alloc(64, A->size*sizeof(double));
+	
+	double *s = calloc(A->size, sizeof(double));
+	double *r = calloc(A->size, sizeof(double));
+	double *rold = calloc(A->size, sizeof(double));
 	double *d = calloc(A->size, sizeof(double));
 	double *q = calloc(A->size, sizeof(double));
 	double *tmp = calloc(A->size, sizeof(double));
@@ -405,6 +404,11 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	transposeCSC(G, Gtransp);
 	start_usec = omp_get_wtime();
 	printf("\nTransposing Time: %lf\n\n", start_usec - end_usec);
+	
+	
+	char buf_p[256];
+	snprintf(buf_p, sizeof buf_p, "../Outputs/cg/DataCG/patterns/pattern_%s_%i_%i.mtx", argv, percentpattern, patternpower);
+	print_pattern(buf_p, G);
 	
 	
 	mat_t *GtranspCOO = malloc(sizeof(mat_t));
@@ -428,6 +432,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	for (m = 0; m < reps; m++){														/* REPEAT LOOP reps TIMES */
 		for (i = 0; i < A->size; i++){
 			r[i] = 0.0;
+			rold[i] = 0.0;
 			d[i] = 0.0;
 			q[i] = 0.0;
 			s[i] = 0.0;
@@ -505,14 +510,26 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 				pscaleVect(alpha, q, tmp, A->size);									/* r -= alpha * q */
 				psubToVect(r, tmp, A->size);
 			}
+		
+		
+		
+// // 			ttmp = omp_get_wtime();													/* Preconditioning residual */
+// 			pmultMatVect(tmp, r, G);												/* s = M⁻1 * r    --->   s = G * G^t * r */
+// // 			tmult += omp_get_wtime() - ttmp;
+// 			pzerovect(s, A->size);
+// // 			ttmp = omp_get_wtime();
+// 			pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
+// // 			ttransp += omp_get_wtime() - ttmp;
 			
-// 			ttmp = omp_get_wtime();													/* Preconditioning residual */
+			
+			pequalvects(rold, r, A->size);
 			pmultMatVect(tmp, r, G);												/* s = M⁻1 * r    --->   s = G * G^t * r */
-// 			tmult += omp_get_wtime() - ttmp;
-			pzerovect(s, A->size);
-// 			ttmp = omp_get_wtime();
-			pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
-// 			ttransp += omp_get_wtime() - ttmp;
+			pzerovect(r, A->size);
+			pmultMatVectCOO(r, tmp, GtranspCOO, limits, nthreads);
+			pequalvects(s, r, A->size);
+			pequalvects(r, rold, A->size);
+			
+			
 			
 			d_old = d_new;															/* d_old = d_new */
 			d_new = pmultVectVect(s, r, A->size);									/* d_new = r * s */
@@ -536,20 +553,17 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 // 		printf("tmult: %lf\t\tdcmmult: %.4e\txdcmmult: %.4e\nttransp: %lf\tdcmtransp: %.4e\txdcmtransp: %.4e\n\n", tmult/((double) i), (double) dcmnorm/((double) i), (double) xdcmnorm, ttransp/((double) i), (double) dcmtransp/((double) i), (double) xdcmtransp);
 		
-// 		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i]);
+		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i]);
 		
 		
 		
 		
-		fprintf(outmn, "%i\t", omp_get_max_threads());
+		fprintf(outmn, "%.2lf\t", 100.0 * ((double) G->nnz) / (double) (((A->nnz - A->size)/2) + A->size) - 100.0);
 		
 		fprintf(outmn, "%u\t", percentpattern);
 		fprintf(outmn, "%u\t", G->nnz);
 		
 		fprintf(outmn, "%u\t", i);
-// 		fprintf(outmn, "%lf\t", end_usec);
-// 		fprintf(outmn, "%lf\t", (end_usec)/((double) i));
-		
 		fprintf(outmn, "%lf\t", end_usec - start_usec);
 		fprintf(outmn, "%lf\t", (end_usec - start_usec)/((double) i));
 		
@@ -566,9 +580,6 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		sumiter[m] = i;
-// 		sumtottime[m] = end_usec;
-// 		sumtimeiter[m] = (end_usec)/((double) i);
-		
 		sumtottime[m] = end_usec - start_usec;
 		sumtimeiter[m] = (end_usec - start_usec)/((double) i);
 		
@@ -584,54 +595,85 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		
-		
-// 		snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
-// 		dump_info(buf_t, i, residuals, elapses, dnew);
-	}
-	
-	double *sumtottimeOrdered = calloc(reps, sizeof(double));
-	
-	m = floor(((double) reps)/2.0);
-	
-	for (i = 0; i < reps; i++) sumtottimeOrdered[i] = sumtottime[i];
-	
-	qsort(sumtottimeOrdered, reps, sizeof(double), compd);
-	
-	for (i = 0; i < reps; i++){
-// 		printf("%lf, ", sumtottimeOrdered[i]);
-// 		printf("%lf, ", sumtottime[i]);
-// 		printf("\n");
-		if (sumtottime[i] == sumtottimeOrdered[m]) break;
+		if (m >= 0) {
+			snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
+			dump_info(buf_t, i, residuals, elapses, dnew);
+		}
 	}
 	
 	
-	fprintf(outmn, "\n%i\t", omp_get_max_threads());
-	fprintf(outmn, "%u\t", percentpattern);
-	fprintf(outmn, "%u\t", G->nnz);
-	fprintf(outmn, "%u\t", (int) floor(((double) sumiter[m]) / ((double) meannums)));
+	// IF GETTING MEDIAN
+	
+// 	double *sumtottimeOrdered = calloc(reps, sizeof(double));
+// 	
+// 	m = floor(((double) reps)/2.0);
+// 	
+// 	for (i = 0; i < reps; i++) sumtottimeOrdered[i] = sumtottime[i];
+// 	
+// 	qsort(sumtottimeOrdered, reps, sizeof(double), compd);
+// 	
+// 	for (i = 0; i < reps; i++){
+// // 		printf("%lf, ", sumtottimeOrdered[i]);
+// // 		printf("%lf, ", sumtottime[i]);
+// // 		printf("\n");
+// 		if (sumtottime[i] == sumtottimeOrdered[m]) break;
+// 	}
+	
+	// IF GETTING LOWEST
+	
+	double tmin = 1000.0;
+	for (unsigned int j = 0; j < reps; j++){
+		if (sumtottime[j] < tmin) {
+			i = j;
+			tmin = sumtottime[j];
+		}
+	}
+	
+	
+	char buffig[256];
+	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%.1e", matname, err);
+	
+	
+	FILE *outmnfig = fopen(buffig, "a");
+	if (outmn == NULL){
+		printf("Could not open writing file.");
+		return 0;
+	}
 	
 	
 	
-	fprintf(outmn, "%lf\t", sumtottime[i] / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumtimeiter[i] / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumtmult[i] / ((double) meannums));
-	fprintf(outmn, "%lf\t", sumttransp[i] / ((double) meannums));
 	
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmnorm[i]) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmnorm[i]) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdifmult[i]) / ((double) meannums)));
-	
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumdcmtransp[i]) / ((double) meannums)));
-	fprintf(outmn, "%lli\t", (long long) floor(((double) sumxdcmtransp[i]) / ((double) meannums)));
-	fprintf(outmn, "%lli\n\n", (long long) floor(((double) sumdiftransp[i]) / ((double) meannums)));
+// 	fprintf(outmn, "%i\t", omp_get_max_threads());
+
+	fprintf(outmnfig, "%.2lf\t", 100.0 * ((double) G->nnz) / (double) (((A->nnz - A->size)/2) + A->size) - 100.0);
+	fprintf(outmnfig, "%u\t", percentpattern);
+	fprintf(outmnfig, "%u\t", G->nnz);
+// 	fprintf(outmnfig, "%u\t", (int) floor(((double) sumiter[m]) / ((double) meannums)));
+	fprintf(outmnfig, "%u\t", (int) floor(((double) sumiter[i]) / ((double) meannums)));
 	
 	
+	fprintf(outmnfig, "%lf\t", sumtottime[i] / ((double) meannums));
+	fprintf(outmnfig, "%lf\t", sumtimeiter[i] / ((double) meannums));
+	fprintf(outmnfig, "%lf\t", sumtmult[i] / ((double) meannums));
+	fprintf(outmnfig, "%lf\t", sumttransp[i] / ((double) meannums));
+	
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumdcmnorm[i]) / ((double) meannums)));
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumxdcmnorm[i]) / ((double) meannums)));
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumdifmult[i]) / ((double) meannums)));
+	
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumdcmtransp[i]) / ((double) meannums)));
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumxdcmtransp[i]) / ((double) meannums)));
+	fprintf(outmnfig, "%lli\t", (long long) floor(((double) sumdiftransp[i]) / ((double) meannums)));
+	fprintf(outmnfig, "%u\n", i);
+	
+	fclose(outmnfig);
 	
 // 	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 	
 	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(residuals); free(elapses); free(dnew);
 	
-	free(sumiter); free(sumtottime); free(sumtimeiter); free(sumtmult); free(sumttransp); free(sumdcmnorm); free(sumxdcmnorm); free(sumdifmult); free(sumdcmtransp); free(sumxdcmtransp); free(sumdiftransp); free(sumtottimeOrdered);
+	free(sumiter); free(sumtottime); free(sumtimeiter); free(sumtmult); free(sumttransp); free(sumdcmnorm); free(sumxdcmnorm); free(sumdifmult); free(sumdcmtransp); free(sumxdcmtransp); free(sumdiftransp); 
+// 	free(sumtottimeOrdered);
 	
 	return x;
 }

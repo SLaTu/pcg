@@ -575,7 +575,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	double *diag;
 	unsigned int diagcounter = 0, zerocounter = 0;
 	diag = calloc(G->size, sizeof(double));
-	double zero = 0.0000000000000001;
+	double zero = 1E-10;
 	unsigned int counter = 0;
 	
 
@@ -621,28 +621,63 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		gnoz->rows[i + 1] = counter;
 	}
 
-	
+	printf("%u -> %u\n", pattern->nnz, counter);
 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
 	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
 	
-// 	G->nnz = gnoz->nnz;
-// 
-// 	G->values = realloc(G->values, G->nnz*sizeof(double));
-// 	G->cols = realloc(G->cols, G->nnz*sizeof(unsigned int));
-// 	
-// 	for (i = 0; i < G->nnz; i++){
-// 		G->values[i] = gnoz->values[i];
-// 		G->cols[i] = gnoz->cols[i];
-// 	}
-// 	
-// 	for (i = 0; i < G->size; i++){
-// 		G->rows[i] = gnoz->rows[i];
-// 	}
 	
 	// 	4.
 	// 	Drop small entries in G and rescale
 	//
-	free(diag); free(pattern); free(expanded_patt); free(gnoz);
+	
+	
+	for(i = 25; i < 50; i++){
+		printf("\n%u\t\t", G->rows[i + 1]);
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			printf("%lf %u\t", G->values[j], G->cols[j]);
+		}
+	}
+	printf("\n");
+	
+	
+	G->nnz = gnoz->nnz;
+	G->values = gnoz->values;
+	G->cols = gnoz->cols;
+	G->rows = gnoz->rows;
+	
+	
+	for(i = 25; i < 50; i++){
+		printf("\n%u\t\t", G->rows[i + 1]);
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			printf("%lf %u\t", G->values[j], G->cols[j]);
+		}
+	}
+	printf("\n\n");
+	
+	
+// 	free(gnoz);
+	
+	
+/*	
+	G->nnz = gnoz->nnz;
+
+	G->values = realloc(G->values, G->nnz*sizeof(double));
+	G->cols = realloc(G->cols, G->nnz*sizeof(unsigned int));
+	
+	for (i = 0; i < G->nnz; i++){
+		G->values[i] = 0.0;
+		G->cols[i] = 0;
+		G->values[i] = gnoz->values[i];
+		G->cols[i] = gnoz->cols[i];
+	}
+	
+	for (i = 0; i < G->size; i++){
+		G->rows[i] = 0;
+		G->rows[i] = gnoz->rows[i];
+	}*/
+	
+
+	free(diag); free(pattern); free(expanded_patt);
 }
 
 
