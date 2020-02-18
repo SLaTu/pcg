@@ -4,6 +4,7 @@
 extern unsigned int percentpattern;
 extern unsigned int patternpower;
 extern FILE *outmn;
+extern char matname[256];
 
 int compd(const void * a, const void * b){
   if (*(double*)a > *(double*)b) return 1;
@@ -17,9 +18,153 @@ int comp (const void *a, const void *b){
 	return *x - *y;
 }
 
+
+void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal, mat_t *A){
+	
+	int i, j, k, l, m;
+	int cachecol = 0, maxloop = 0, testcol = 0, isinline = 0, prevelems = 0;
+	long long cacheline = 0;
+	int *poolcols = malloc(8*pattern->nnz*sizeof(int));
+	int *tmprows = calloc(dim + 1, sizeof(int));
+	int addedelements = 0;
+	int counter = 0;
+	int added = 0; 
+	int maxaddedrow = 1;
+	int addedrow = 0;
+	int count = 0;
+	int oldsize = 0;
+	
+	int *rowelems = calloc(dim, sizeof(int));
+	
+	expanded_patt->nnz = pattern->nnz;
+	expanded_patt->cols = calloc(pattern->nnz, sizeof(unsigned int));
+	
+	for (i = 0; i < expanded_patt->nnz; i++){expanded_patt->cols[i] = pattern->cols[i];}
+	for (i = 0; i < dim + 1; i++){expanded_patt->rows[i] = pattern->rows[i];}
+	
+	
+	#pragma omp parallel for
+	for (i = 0; i < 8*expanded_patt->nnz; i++) poolcols[i] = -100;
+	
+	
+	
+	while (maxloop < percentpattern){
+		
+		oldsize = 8*expanded_patt->nnz;
+		poolcols = realloc(poolcols, (8*expanded_patt->nnz)*sizeof(unsigned int));
+		#pragma omp parallel for
+		for (i = 0; i < 8*expanded_patt->nnz; i++) poolcols[i] = -100;
+		#pragma omp parallel for
+		for (i = 0; i < dim + 1; i++){tmprows[i] = 0;}
+		
+		counter = 0;
+		
+		#pragma omp parallel for private(prevelems, cachecol, cacheline, i, j, k, l, m, testcol, isinline, added, addedrow) reduction(+:addedelements, counter)
+		for (i = 0; i < dim; i++){
+			
+			addedrow = 0;
+			prevelems = expanded_patt->rows[i];
+			
+			for(j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
+				
+				cachecol = (int) expanded_patt->cols[j];
+				cacheline = (((long long) &xfinal[expanded_patt->cols[j]]%64)/8);
+				
+				for (k = 0; k < 8; k++){
+					
+					isinline = 0;
+					testcol = cachecol - (int) cacheline + k;
+					
+					for (l = expanded_patt->rows[i]; l < expanded_patt->rows[i + 1]; l++){
+						
+						if ((int) expanded_patt->cols[l] == testcol){
+							isinline = 1;
+							break;
+						}
+					}
+					
+					if ((testcol >= 0) && (testcol <= i) && (isinline == 0) && (addedrow < maxaddedrow)){
+						
+						added = 0;
+						for (l = pattern->rows[testcol]; l < pattern->rows[testcol + 1]; l++){
+							for(m = expanded_patt->rows[i]; m < expanded_patt->rows[i + 1]; m++){
+								if ((pattern->cols[l] == expanded_patt->cols[m]) && (added == 0)){
+									poolcols[prevelems*8 + (j - prevelems)*8 + k] = testcol;
+									addedelements++;
+									tmprows[i + 1]++;
+									added = 1;
+									addedrow++;
+								}
+							}
+						}
+					}
+					else if ((testcol >= 0) && (testcol <= i) && (isinline == 1)){
+						
+						poolcols[prevelems*8 + (j - prevelems)*8 + k] = testcol;
+						if (testcol != cachecol) j++;
+						tmprows[i + 1]++;
+						counter++;
+					}
+					else{poolcols[prevelems*8 + (j - prevelems)*8 + k] = -100;}
+				}
+			}
+			
+			rowelems[i] += addedrow;
+		}
+		
+		
+		expanded_patt->nnz = counter + addedelements;
+		expanded_patt->cols = realloc(expanded_patt->cols, expanded_patt->nnz*sizeof(unsigned int));
+		
+		count = 0;
+		for (i = 0; i < oldsize; i++){
+			if (poolcols[i] >= 0){
+				expanded_patt->cols[count] = (unsigned int) poolcols[i];
+				count++;
+			}
+		}
+		
+		for (i = 1; i < dim + 1; i++){tmprows[i] += tmprows[i - 1];}
+		
+		#pragma omp parallel for
+		for (i = 0; i < dim + 1; i++){expanded_patt->rows[i] = (unsigned int) tmprows[i];}
+		
+		
+		
+// 		for (i = dim - 10; i < dim; i++){
+// 			printf("%i\t%i\t\t", expanded_patt->rows[i + 1] - expanded_patt->rows[i], expanded_patt->rows[i + 1]);
+// 			for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
+// 				printf("%u, ", expanded_patt->cols[j]);
+// 			}
+// 			printf("\n");
+// 		}
+// 		printf("\n");
+
+
+		char buf_p[256];
+		snprintf(buf_p, sizeof buf_p, "../Outputs/cg/DataCG/addedelems/add_%s_%i_%i.mtx", matname, patternpower, maxloop);
+		FILE *tests= fopen(buf_p, "w");
+		for(i = 0; i < dim; i++) fprintf(tests, "%i %i\n", i, rowelems[i]);
+		
+		fclose(tests);
+		
+		maxloop++;
+	}
+	
+	printf("ADDEDELEMENTS: %i\n", addedelements);
+	printf("Initial ELEMENTS: %i\n", counter);
+	
+	
+	
+	free(poolcols); free(tmprows);
+}
+
+
+
+
 void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
-	unsigned int i = 0, j = 0, k = 0, l = 0, m = 0;
+	unsigned int i = 0, j = 0, k = 0, l = 0;
 	unsigned int *elementstoadd = calloc(8, sizeof(unsigned int));
 	int cacheelements = 0;
 	unsigned int maxcacheelements = 0;
@@ -38,29 +183,19 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 	maxaddedelements = floor(maxtmp);
 	expanded_patt->nnz = pattern->nnz + maxaddedelements;
 	expanded_patt->cols = calloc(expanded_patt->nnz, sizeof(unsigned int));
-
-
+	
 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
 	
-	int lim1 = 100;
-	int lim2 = 110;
-
-// 	for (i = lim1; i < lim2; i++) printf("%u, ", pattern->rows[i] - pattern->rows[i - 1]);
-// 	printf("\n");
-
 	for(i = 0; i < dim; i++){
-
+		
 		oldcachecol = -10;
 		oldcacheline = 0;
 		
-// 		if ((i > lim1) && (i < lim2)) printf("\n");
 		
 		for(j = pattern->rows[i]; j < pattern->rows[i + 1]; j++){
 			
 			cachecol = pattern->cols[j];
 			cacheline = (((long long) &xfinal[pattern->cols[j]]%64)/8);
-// 			if ((i > lim1) && (i < lim2)) printf("\n");
-// 			if ((i > lim1) && (i < lim2)) printf("CACHELINE: %lli\tCOLUMN: %u\t\t ", cacheline, cachecol);
 			
 			if (((cachecol - oldcachecol) > 7) || (((cachecol - oldcachecol) <= 7) && ((cacheline - oldcacheline) < 0))){
 				
@@ -98,10 +233,6 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 				}
 				
 				
-// 				if ((i > lim1) && (i < lim2)) for (m = 0; m < 8; m++) printf("%u ", elementstoadd[m]);
-				//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-				
-// 				if ((i > lim1) && (i < lim2)) printf("\t");
 				
 				calc += cacheelements * ((int) percentpattern); // si > 75 -> 1, si > 175 -> 2
 				maxcacheelements = 0;
@@ -111,21 +242,16 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 					maxcacheelements++;
 				}
 				
-// 				if ((maxcacheelements + cacheelements) > 8) {
-// 					calc += ((maxcacheelements + cacheelements) - 8) * 100;
-// 				}
 				
 				//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 				
 				initk = (int) cacheline - (int) maxcacheelements;
 				if (initk < 0) initk = 0;
 				
-// 				for (k = 0; k < 8; k++){
 				for (k = initk; k < 8; k++){
 					if ((elementstoadd[k] == 1) && (addedelements < maxaddedelements) && (cacheadded < maxcacheelements) && ((k + pattern->cols[j] - (int) cacheline) < i) && ((k + pattern->cols[j] - (unsigned int) cacheline) >= 0)){
 						expanded_patt->cols[counterB] = pattern->cols[j] + k - (unsigned int) cacheline;
 						
-// 						if ((i > lim1) && (i < lim2)) printf("%u\t", expanded_patt->cols[counterB]);
 						
 						counterB++;
 						addedelements++;
@@ -134,7 +260,6 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 					else if ((elementstoadd[k] == 0) && ((k + pattern->cols[j] - (unsigned int) cacheline) <= i) && ((k + pattern->cols[j] - (unsigned int) cacheline) >= 0) && (pattern->cols[counterA] == (pattern->cols[j] + k - (unsigned int) cacheline))){
 						expanded_patt->cols[counterB] = pattern->cols[counterA];
 						
-// 						if ((i > lim1) && (i < lim2)) printf("|%u|\t", expanded_patt->cols[counterB]);
 						
 						counterA++;
 						counterB++;
@@ -148,19 +273,10 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 	}
 	expanded_patt->nnz = expanded_patt->rows[dim];
 	
-// 	printf("\n");
-// 	printf("\n");
-// 	for (i = lim1 + 1; i < lim2; i++){
-// 		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
-// 			printf("%u,  ", expanded_patt->cols[j]);
-// 		}
-// 		printf("\n");
-// 	}
 	
 	printf("\n\n%u -> ^%.2lf%%\n\n", expanded_patt->nnz, 100 * (((double) expanded_patt->nnz - (double) pattern->nnz)/ ((double) pattern->nnz)));
 	
 	
-// 	fprintf(outmn, "%u\t", expanded_patt->nnz);
 	free(elementstoadd);
 }
 
@@ -409,24 +525,13 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	free(poscol);
 	
 	
-// 	for (i = limone; i < limtwo; i++){
-// 		for (j = pattern->rows[i]; j < pattern->rows[i + 1]; j++){
-// 			printf("%u, ", pattern->cols[j]);
-// 		}
-// 		printf("\t%u\n", pattern->rows[i + 1]);
-// 	}
 	
 	
+	optexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
 	
-	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+// 	expandpattern(mat->size, pattern, expanded_patt, xfinal);
 	
 	
-// 	for (i = limone; i < limtwo; i++){
-// 		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
-// 			printf("%u, ", expanded_patt->cols[j]);
-// 		}
-// 		printf("\t%u\n", expanded_patt->rows[i + 1]);
-// 	}
 	
 }
 

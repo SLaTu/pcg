@@ -51,7 +51,7 @@ int main(int argc, char *argv[]){
 		readrhs(b, argv[1], A->size);
 	}
 	else {
-		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/18000);
+		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180) ;
 		pmultMatVect(b, x, A);
 		for (j = 0; j < A->size; j++) x[j] = 0.0;
 	}
@@ -355,7 +355,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	long long *sumxdcmtransp = calloc(reps, sizeof(long long));
 	long long *sumdiftransp = calloc(reps, sizeof(long long));
 	
-	double tmult = 0.0, ttransp = 0.0, ttmp = 0.0;
+	double tmult = 0.0, ttransp = 0.0;
 // 	int retval, EventSet = PAPI_NULL;
 // 	long_long values[1];
 	long long dcmnorm = 0, dcmtransp = 0;

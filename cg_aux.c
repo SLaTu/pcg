@@ -447,6 +447,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	double totalresid = 0.0;							/* to reduce when parallelizing */
 	
 	
+	
 // 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
 	for (i = 0; i < mat->size; i++){					// For every row in the matrix
 		
@@ -484,13 +485,10 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		
 		
 		/****************************************************************/
-// 		for (j = 0; j < rowelems; j++) printf("%.16lf, ", b[j]);
-// 		printf("\n");
 		
 		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
 		
-// 		for (j = 0; j < rowelems; j++) printf("%.16lf, ", b[j]);
-// 		printf("\n\n\n");
+		
 		
 		double norm_x = cblas_ddot(rowelems, b, 1, b, 1);
 		
@@ -631,29 +629,10 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	//
 	
 	
-	for(i = 25; i < 50; i++){
-		printf("\n%u\t\t", G->rows[i + 1]);
-		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			printf("%lf %u\t", G->values[j], G->cols[j]);
-		}
-	}
-	printf("\n");
-	
-	
 	G->nnz = gnoz->nnz;
 	G->values = gnoz->values;
 	G->cols = gnoz->cols;
 	G->rows = gnoz->rows;
-	
-	
-	for(i = 25; i < 50; i++){
-		printf("\n%u\t\t", G->rows[i + 1]);
-		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			printf("%lf %u\t", G->values[j], G->cols[j]);
-		}
-	}
-	printf("\n\n");
-	
 	
 // 	free(gnoz);
 	
