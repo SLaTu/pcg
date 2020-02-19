@@ -21,18 +21,20 @@ int comp (const void *a, const void *b){
 
 void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal, mat_t *A){
 	
+	int cachesize = 8;
+	
 	int i, j, k, l, m;
-	int cachecol = 0, maxloop = 0, testcol = 0, isinline = 0, prevelems = 0;
+	int cachecol = 0, maxloop = 0, testcol = 0, isincacheline = 0, numrowelems = 0;
 	long long cacheline = 0;
-	int *poolcols = malloc(8*pattern->nnz*sizeof(int));
+	int *poolcols = malloc(cachesize*pattern->nnz*sizeof(int));
 	int *tmprows = calloc(dim + 1, sizeof(int));
-	int addedelements = 0;
+	int addedelements = 0, totaladdedelements = 0;
 	int counter = 0;
 	int added = 0; 
 	int maxaddedrow = 1;
 	int addedrow = 0;
 	int count = 0;
-	int oldsize = 0;
+	int newsize = 0;
 	
 	int *rowelems = calloc(dim, sizeof(int));
 	
@@ -44,52 +46,51 @@ void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, do
 	
 	
 	#pragma omp parallel for
-	for (i = 0; i < 8*expanded_patt->nnz; i++) poolcols[i] = -100;
+	for (i = 0; i < cachesize*expanded_patt->nnz; i++) poolcols[i] = -100;
 	
 	
 	
 	while (maxloop < percentpattern){
 		
-		oldsize = 8*expanded_patt->nnz;
-		poolcols = realloc(poolcols, (8*expanded_patt->nnz)*sizeof(unsigned int));
+		newsize = cachesize*expanded_patt->nnz;
+		poolcols = realloc(poolcols, newsize*sizeof(unsigned int));
 		#pragma omp parallel for
-		for (i = 0; i < 8*expanded_patt->nnz; i++) poolcols[i] = -100;
+		for (i = 0; i < cachesize*expanded_patt->nnz; i++) poolcols[i] = -100;
 		#pragma omp parallel for
 		for (i = 0; i < dim + 1; i++){tmprows[i] = 0;}
 		
+		addedelements = 0;
 		counter = 0;
 		
-		#pragma omp parallel for private(prevelems, cachecol, cacheline, i, j, k, l, m, testcol, isinline, added, addedrow) reduction(+:addedelements, counter)
+		#pragma omp parallel for private(numrowelems, cachecol, cacheline, j, k, l, m, testcol, isincacheline, added, addedrow) reduction(+:addedelements, counter)
 		for (i = 0; i < dim; i++){
 			
 			addedrow = 0;
-			prevelems = expanded_patt->rows[i];
+			numrowelems = expanded_patt->rows[i];
 			
 			for(j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
 				
 				cachecol = (int) expanded_patt->cols[j];
 				cacheline = (((long long) &xfinal[expanded_patt->cols[j]]%64)/8);
 				
-				for (k = 0; k < 8; k++){
+				for (k = 0; k < cachesize; k++){
 					
-					isinline = 0;
+					isincacheline = 0;
 					testcol = cachecol - (int) cacheline + k;
 					
 					for (l = expanded_patt->rows[i]; l < expanded_patt->rows[i + 1]; l++){
-						
 						if ((int) expanded_patt->cols[l] == testcol){
-							isinline = 1;
+							isincacheline = 1;
 							break;
 						}
 					}
 					
-					if ((testcol >= 0) && (testcol <= i) && (isinline == 0) && (addedrow < maxaddedrow)){
-						
+					if ((testcol >= 0) && (testcol <= i) && (isincacheline == 0) && (addedrow < maxaddedrow)){
 						added = 0;
 						for (l = pattern->rows[testcol]; l < pattern->rows[testcol + 1]; l++){
 							for(m = expanded_patt->rows[i]; m < expanded_patt->rows[i + 1]; m++){
 								if ((pattern->cols[l] == expanded_patt->cols[m]) && (added == 0)){
-									poolcols[prevelems*8 + (j - prevelems)*8 + k] = testcol;
+									poolcols[numrowelems*cachesize + (j - numrowelems)*cachesize + k] = testcol;
 									addedelements++;
 									tmprows[i + 1]++;
 									added = 1;
@@ -98,26 +99,26 @@ void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, do
 							}
 						}
 					}
-					else if ((testcol >= 0) && (testcol <= i) && (isinline == 1)){
+					else if ((testcol >= 0) && (testcol <= i) && (isincacheline == 1)){
 						
-						poolcols[prevelems*8 + (j - prevelems)*8 + k] = testcol;
+						poolcols[numrowelems*cachesize + (j - numrowelems)*cachesize + k] = testcol;
 						if (testcol != cachecol) j++;
 						tmprows[i + 1]++;
 						counter++;
 					}
-					else{poolcols[prevelems*8 + (j - prevelems)*8 + k] = -100;}
+					else{/*poolcols[numrowelems*cachesize + (j - numrowelems)*cachesize + k] = -100;*/}
 				}
 			}
 			
 			rowelems[i] += addedrow;
 		}
 		
-		
+		totaladdedelements += addedelements;
 		expanded_patt->nnz = counter + addedelements;
 		expanded_patt->cols = realloc(expanded_patt->cols, expanded_patt->nnz*sizeof(unsigned int));
 		
 		count = 0;
-		for (i = 0; i < oldsize; i++){
+		for (i = 0; i < newsize; i++){
 			if (poolcols[i] >= 0){
 				expanded_patt->cols[count] = (unsigned int) poolcols[i];
 				count++;
@@ -126,41 +127,68 @@ void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, do
 		
 		for (i = 1; i < dim + 1; i++){tmprows[i] += tmprows[i - 1];}
 		
+		
+		
 		#pragma omp parallel for
 		for (i = 0; i < dim + 1; i++){expanded_patt->rows[i] = (unsigned int) tmprows[i];}
 		
 		
-		
-// 		for (i = dim - 10; i < dim; i++){
-// 			printf("%i\t%i\t\t", expanded_patt->rows[i + 1] - expanded_patt->rows[i], expanded_patt->rows[i + 1]);
-// 			for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
-// 				printf("%u, ", expanded_patt->cols[j]);
-// 			}
-// 			printf("\n");
-// 		}
-// 		printf("\n");
-
-
 		char buf_p[256];
-		snprintf(buf_p, sizeof buf_p, "../Outputs/cg/DataCG/addedelems/add_%s_%i_%i.mtx", matname, patternpower, maxloop);
+		snprintf(buf_p, sizeof buf_p, "../Outputs/cg/DataCG/addedelems/add_%s_%i_%i_%i.mtx", matname, percentpattern, patternpower, maxloop);
 		FILE *tests= fopen(buf_p, "w");
-		for(i = 0; i < dim; i++) fprintf(tests, "%i %i\n", i, rowelems[i]);
-		
+		int sum = 0, pos = 0;
+		double avg = 0.0;
+		for(i = 0; i < dim; i++){
+			sum += rowelems[i];
+			if ((i%1000 == 0) && (i > 0)){
+				avg = (double) sum / 1000.0;
+				fprintf(tests, "%i %lf\n", pos, avg);
+				pos++;
+				sum = 0;
+			}
+		}
 		fclose(tests);
 		
 		maxloop++;
 	}
 	
-	printf("ADDEDELEMENTS: %i\n", addedelements);
-	printf("Initial ELEMENTS: %i\n", counter);
+	
+	int top = 0;
+	
+	for (i = 0; i < dim; i++) top+=rowelems[i];
 	
 	
 	
+	top = 0;
+	for (i = 0; i < dim; i++){
+		if (rowelems[i] > top) top = rowelems[i];
+	}
+	
+	int *histogram = calloc(top + 1, sizeof(int));
+	
+	for (i = 0; i < dim; i++){
+		histogram[rowelems[i]]++;
+	}
+	
+	char buf_h[256];
+	snprintf(buf_h, sizeof buf_h, "../Outputs/cg/DataCG/hist_%s_%i_%i", matname, patternpower, percentpattern);
+	FILE *histograms= fopen(buf_h, "w");
+	for(i = 0; i < top + 1; i++){
+		fprintf(histograms, "%i %i\n", i, histogram[i]);
+	}
+	fclose(histograms);
+	
+	
+	
+	printf("INITIAL ELEMENTS:\t%i\n", pattern->nnz);
+	printf("ADDED ELEMENTS:\t\t%i\n", addedelements);
+	printf("SUM ADDED ELEMENTS:\t%i\n", totaladdedelements);
+	printf("TOTAL ELEMENTS:\t\t%i\n", expanded_patt->nnz);
+	printf("INCREASE ELEMENTS:\t%.2lf%%\n", ((double) expanded_patt->nnz)/((double) pattern->nnz)*100.0 - 100.0);
+	
+	free(histogram);
 	free(poolcols); free(tmprows);
 }
-
-
-
 
 void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
@@ -281,18 +309,6 @@ void expandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, doubl
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 void ltp(mat_t *mat, pat_t *pattern, pat_t *expanded_patt){
 
 	unsigned int i = 0, j = 0;
@@ -322,19 +338,6 @@ void ltp(mat_t *mat, pat_t *pattern, pat_t *expanded_patt){
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt){
 
 	unsigned int i = 0, j = 0;
@@ -359,25 +362,6 @@ void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt){
 	expanded_patt->nnz = pattern->nnz;
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
@@ -413,20 +397,6 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	for (i = 0; i < (dim + 1); i++) {
 		apower->rows[i] = mat->rows[i];
 	}
-	
-// 	int limone = 9990;
-// 	int limtwo = 10000;
-// 	
-// 	
-// 	for (i = limone; i < limtwo; i++){
-// 		for (j = apower->rows[i]; j < apower->rows[i + 1]; j++){
-// 			printf("%u, ", apower->cols[j]);
-// 		}
-// 		printf("\t%u\n", apower->rows[i + 1]);
-// 	}
-	
-	
-	
 	
 	/* POWER A to the patternpower */
 	
@@ -489,7 +459,7 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
 	ttotal = omp_get_wtime() - ttotal;
 	
-	printf("For Time: %lf\tSorting Time: %lf\tEnd Time: %lf\tTotal Time: %lf\n\n", tfor, tsort, tend, ttotal);
+// 	printf("For Time: %lf\tSorting Time: %lf\tEnd Time: %lf\tTotal Time: %lf\n\n", tfor, tsort, tend, ttotal);
 	
 	elements = 0;
 	counter = 0;
@@ -534,21 +504,6 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
 	
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){

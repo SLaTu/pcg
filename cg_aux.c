@@ -19,7 +19,7 @@ int cg_config(int argc, char *argv[]) {
 		printf("\nAdd as arguments a matrix file, block size, maximum iterations, tolerance (<1) and mode. For mode 3 (PCG) add PCG pattern. For PCG pattern 3 add power and percentage. For PCG pattern 4 add percentage.\n\n");
 		return 1;
 	}
-
+	
 	snprintf(matname, sizeof matname, "%s", argv[1]);
 	rhs = atoi(argv[2]);
 	reps = atoi(argv[3]);
@@ -27,7 +27,6 @@ int cg_config(int argc, char *argv[]) {
 	err = atof(argv[5]);
 	mode = atoi(argv[6]);
 	
-
 	if ((mode == 3) && (argc >= 8)) {
 		patternmode = atoi(argv[6]);
 		
@@ -61,18 +60,16 @@ int cg_config(int argc, char *argv[]) {
 	
 	return 0;
 }
-
-
+	
+	
 int cg_setup(char* matname, mat_t *mat){
-
+	
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
-
 	unsigned int j = 0, i = 0;
 	unsigned int rowvalue = 0, cmp = 0, acum = 0, position = 0, count = 0;
 	double num = 0;
-	
 	char buff[256];
 	
 	snprintf(buff, sizeof buff, "../Inputs/Matrices/%s", matname);
@@ -81,13 +78,13 @@ int cg_setup(char* matname, mat_t *mat){
 		fprintf(stderr, "Error: file open failed '%s'.\n\n", matname);
 		return 1;
 	}
-
+	
 	while ((read = getline(&line, &len, fp)) != -1){
-
+		
 		num = 0;
-
+		
 		while(fscanf(fp, "%lf", &num) == 1){
-
+			
 			if (count == 0){
 				mat->size = (unsigned int) num;
 			}
@@ -129,36 +126,21 @@ int cg_setup(char* matname, mat_t *mat){
 			if (count == 6) count = 3;
 		}
 	}
-
 	for (i = (position + 1); i < (mat->size + 1); i++){mat->rows[i] = acum;}
-
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
 	
-	
-	
-	
-// 	for (i = 0; i < mat->nnz; i++) printf("%lf, ", mat->values[i]);
-// 	printf("\n");
-// 	for (i = 0; i < mat->nnz; i++) printf("%i, ", mat->cols[i]);
-// 	printf("\n");
-// 	for (i = 0; i < mat->size + 1; i++) printf("%i, ", mat->rows[i]);
-// 	printf("\n");
-	
-	
-
 	return 0;
 }
 
 
 int readrhs(double *b, char* matname, unsigned int size){
-
+	
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
 	unsigned int index = 0;
 	double num = 0;
-	
 	char buff[256];
 	unsigned int count = 0;
 	
@@ -192,19 +174,16 @@ int readrhs(double *b, char* matname, unsigned int size){
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
 	
-// 	for (i = 0; i < size; i++) printf("%lf, ", b[i]);
-// 	printf("\n");
-
 	return 0;
 }
 
 
 void report(mat_t *A, double *r, double *b, unsigned int i, double start_usec, double end_usec){
-
+	
 	unsigned int j = 0;
 	double norm_b = 0.0;
 	double norm_r = 0.0;
-
+	
 	if (i == 0) {printf("Something bad happened. Probably related to patterns.\n");}
 	else {
 		for (j = 0; j < A->size; j++) norm_r += (r[j]*r[j]);
@@ -217,7 +196,6 @@ void report(mat_t *A, double *r, double *b, unsigned int i, double start_usec, d
 	}
 	
 	printf("Total Time:\t%.4lf s\tIteration Time:\t%.4lf s\n\n", end_usec - start_usec, (end_usec - start_usec) / ((double) i));
-
 }
 
 
@@ -238,18 +216,17 @@ void reperror(mat_t *A, double *r, double *b, unsigned int i){
 
 
 mat_t *inverseD(mat_t *mat){
-
+	
 	unsigned int i = 0, j = 0;
 	mat_t *D;
-
+	
 	D = malloc(sizeof(mat_t));
 	D->size = mat->size;
 	D->nnz = D->size;
-
 	D->values = malloc(D->nnz*sizeof(double));
 	D->cols = malloc(D->nnz*sizeof(unsigned int));
 	D->rows = malloc((D->size + 1)*sizeof(unsigned int));
-
+	
 	for (i = 0; i < D->size; i++){
 		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++)
 		{
@@ -276,12 +253,12 @@ double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error){
 	double d_old = 0.0;
 	double beta = 0.0;
 	double *tmp;
-
+	
 	r = malloc(A->size*sizeof(double));
 	d = malloc(A->size*sizeof(double));
 	q = malloc(A->size*sizeof(double));
 	tmp = malloc(A->size*sizeof(double));
-
+	
 	multMatVect(tmp, x, A);
 	subtVects(b, tmp, r, A->size);
 	for (j = 0; j < A->size; j++) d[j] = r[j];
@@ -307,105 +284,87 @@ double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error){
 	return x;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 int LUPDecompose(double **A, int N, double Tol, int *P) {
 
-    int i, j, k, imax; 
-    double maxA, *ptr, absA;
-
-    for (i = 0; i <= N; i++)
-        P[i] = i; //Unit permutation matrix, P[N] initialized with N
-
-    for (i = 0; i < N; i++) {
-        maxA = 0.0;
-        imax = i;
-
-        for (k = i; k < N; k++)
-            if ((absA = fabs(A[k][i])) > maxA) { 
-                maxA = absA;
-                imax = k;
-            }
-
-        if (maxA < Tol) return 0; //failure, matrix is degenerate
-
-        if (imax != i) {
-            //pivoting P
-            j = P[i];
-            P[i] = P[imax];
-            P[imax] = j;
-
-            //pivoting rows of A
-            ptr = A[i];
-            A[i] = A[imax];
-            A[imax] = ptr;
-
-            //counting pivots starting from N (for determinant)
-            P[N]++;
-        }
-
-        for (j = i + 1; j < N; j++) {
-            A[j][i] /= A[i][i];
-
-            for (k = i + 1; k < N; k++)
-                A[j][k] -= A[j][i] * A[i][k];
-        }
-    }
-
-    return 1;  //decomposition done 
+	int i, j, k, imax; 
+	double maxA, *ptr, absA;
+	
+	for (i = 0; i <= N; i++)
+		P[i] = i; //Unit permutation matrix, P[N] initialized with N
+	
+	for (i = 0; i < N; i++) {
+		maxA = 0.0;
+		imax = i;
+	
+		for (k = i; k < N; k++)
+			if ((absA = fabs(A[k][i])) > maxA) { 
+				maxA = absA;
+				imax = k;
+			}
+		
+		if (maxA < Tol) return 0; //failure, matrix is degenerate
+		
+		if (imax != i) {
+			//pivoting P
+			j = P[i];
+			P[i] = P[imax];
+			P[imax] = j;
+			
+			//pivoting rows of A
+			ptr = A[i];
+			A[i] = A[imax];
+			A[imax] = ptr;
+			
+			//counting pivots starting from N (for determinant)
+			P[N]++;
+		}
+		
+		for (j = i + 1; j < N; j++) {
+			A[j][i] /= A[i][i];
+			
+			for (k = i + 1; k < N; k++)
+				A[j][k] -= A[j][i] * A[i][k];
+		}
+	}
+	return 1;  //decomposition done 
 }
 
 /* INPUT: A,P filled in LUPDecompose; b - rhs vector; N - dimension
  * OUTPUT: x - solution vector of A*x=b
  */
 void LUPSolve(double **A, int *P, double *b, int N, double *x) {
-
+	
 	int i, k;
-    for (i = 0; i < N; i++) {
-        x[i] = b[P[i]];
-
-        for (k = 0; k < i; k++)
-            x[i] -= A[i][k] * x[k];
-    }
-
-    for (i = N - 1; i >= 0; i--) {
-        for (k = i + 1; k < N; k++)
-            x[i] -= A[i][k] * x[k];
-
-        x[i] = x[i] / A[i][i];
-    }
+	for (i = 0; i < N; i++) {
+		x[i] = b[P[i]];
+		
+		for (k = 0; k < i; k++)
+			x[i] -= A[i][k] * x[k];
+	}
+	
+	for (i = N - 1; i >= 0; i--) {
+		for (k = i + 1; k < N; k++)
+			x[i] -= A[i][k] * x[k];
+			
+		x[i] = x[i] / A[i][i];
+	}
 }
 
-
-
-
-
-
 void precond(mat_t *mat, mat_t *G, double *xfinal){
-
+	
 	int i = 0, j = 0, k = 0;
-
+	
 	pat_t *pattern = malloc(sizeof(pat_t));
 	pattern->rows = calloc((G->size + 1), sizeof(unsigned int));
-
+	
 	pat_t *expanded_patt = malloc(sizeof(pat_t));
 	expanded_patt->rows = calloc((G->size + 1), sizeof(unsigned int));
-
-
+	
+	
 	// ---------------------------------------------------------------
-
+	
 	// PATTERNS
-
-
+	
 	switch ( patternmode ) {
 		case 1:
 			printf("PCG:\tLOWER TRIANGLE PATTERN\n\n");
@@ -445,8 +404,9 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	}
 	
 	double totalresid = 0.0;							/* to reduce when parallelizing */
-	
-	
+	double *errorrow = calloc(mat->size, sizeof(double));
+	double *residrow = calloc(mat->size, sizeof(double));
+	double *errrow = calloc(mat->size, sizeof(double));
 	
 // 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
 	for (i = 0; i < mat->size; i++){					// For every row in the matrix
@@ -462,6 +422,8 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		double *r = malloc(rowelems*sizeof(double));
 		double *tmp = calloc(rowelems, sizeof(double));
 		double norm_r = 0.0;
+		
+// 		double *atransp = calloc(rowelems*rowelems, sizeof(double));
 		
 		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
 			arrayindex[j - expanded_patt->rows[i]] = expanded_patt->cols[j];
@@ -500,6 +462,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 			norm_r += r[j] * r[j];
 		}
 		
+		residrow[i] = sqrt(norm_r);
 		totalresid += sqrt(norm_r)/sqrt(norm_x);
 		
 		
@@ -567,14 +530,13 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	}
 	
 	
-	printf("INVERSE: Accumulated Residual: %.2e\n", totalresid);
+	printf("\nINVERSE: Accumulated Residual: %.2e\n", totalresid);
 		
 		
 	double *diag;
 	unsigned int diagcounter = 0, zerocounter = 0;
 	diag = calloc(G->size, sizeof(double));
 	double zero = 1E-10;
-	unsigned int counter = 0;
 	
 
 	for (i = 0; i < G->size; i++){
@@ -595,33 +557,34 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		}
 	}
 	
-	printf("INVERSE: %u zeroes in diag\nINVERSE: %u zeroes in matrix\n\n", diagcounter, zerocounter);
+	printf("INVERSE: %u zeroes in diag\nINVERSE: %u zeroes in matrix\n", diagcounter, zerocounter);
+	
 	
 	// REMOVE ZEROS
 	
-	mat_t *gnoz = malloc(sizeof(mat_t));
-	
-	gnoz->size = G->size;
-	gnoz->nnz = G->nnz - zerocounter - diagcounter;
-	gnoz->values = calloc(gnoz->nnz, sizeof(double));
-	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
-	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
-
-	
-	for (i = 0; i < G->size; i++){
-		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			if (fabs(G->values[j]) > zero) {
-				gnoz->values[counter] = G->values[j];
-				gnoz->cols[counter] = G->cols[j];
-				counter++;
-			}
-		}
-		gnoz->rows[i + 1] = counter;
-	}
-
-	printf("%u -> %u\n", pattern->nnz, counter);
-	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
-	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+// 	mat_t *gnoz = malloc(sizeof(mat_t));
+// 	
+// 	gnoz->size = G->size;
+// 	gnoz->nnz = G->nnz - zerocounter - diagcounter;
+// 	gnoz->values = calloc(gnoz->nnz, sizeof(double));
+// 	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
+// 	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
+// 
+// 	
+// 	for (i = 0; i < G->size; i++){
+// 		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+// 			if (fabs(G->values[j]) > zero) {
+// 				gnoz->values[counter] = G->values[j];
+// 				gnoz->cols[counter] = G->cols[j];
+// 				counter++;
+// 			}
+// 		}
+// 		gnoz->rows[i + 1] = counter;
+// 	}
+// 
+// 	printf("%u -> %u\n", pattern->nnz, counter);
+// 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
+// 	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
 	
 	
 	// 	4.
@@ -629,10 +592,10 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	//
 	
 	
-	G->nnz = gnoz->nnz;
-	G->values = gnoz->values;
-	G->cols = gnoz->cols;
-	G->rows = gnoz->rows;
+// 	G->nnz = gnoz->nnz;
+// 	G->values = gnoz->values;
+// 	G->cols = gnoz->cols;
+// 	G->rows = gnoz->rows;
 	
 // 	free(gnoz);
 	
@@ -655,15 +618,39 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		G->rows[i] = gnoz->rows[i];
 	}*/
 	
-
-	free(diag); free(pattern); free(expanded_patt);
+	
+	
+	
+	
+	// OTHER STUFF
+	
+	char buf_res[256];
+	snprintf(buf_res, sizeof buf_res, "../Outputs/cg/DataCG/addedelems/res_%s_%i_%i.mtx", matname, percentpattern, patternpower);
+	FILE *testres= fopen(buf_res, "w");
+	double sum = 0.0;
+	int pos = 0;
+	double avg = 0.0;
+	for(i = 0; i < mat->size; i++){
+		sum += residrow[i];
+		if ((i%1000 == 0) && (i > 0)){
+			avg = sum;
+			fprintf(testres, "%i %.20lf\n", pos, avg);
+			pos++;
+			sum = 0.0;
+		}
+	}
+	fclose(testres);
+	
+	
+	
+	free(diag); free(pattern); free(expanded_patt); 
+	free(errorrow); free(residrow); free(errrow);
 }
-
-
-
-
+	
+	
+	
 void transpose(mat_t *G, mat_t *Gtransp){
-
+	
 	unsigned int i = 0, j = 0, k = 0;
 	unsigned int *contc = calloc(G->size, sizeof(unsigned int));
 	
@@ -687,18 +674,18 @@ void transpose(mat_t *G, mat_t *Gtransp){
 	}
 	free(contc);
 }
-
-
-
+	
+	
+	
 void transposeCSC(mat_t *G, mat_t *Gtransp){
-
+	
 	unsigned int i = 0;
 	
 	Gtransp->nnz = G->nnz;
 	Gtransp->values = calloc(Gtransp->nnz, sizeof(double));
 	Gtransp->rows = calloc(Gtransp->nnz, sizeof(unsigned int));
 	Gtransp->cols = calloc((Gtransp->size + 1), sizeof(unsigned int));
-
+	
 	for (i = 0; i < Gtransp->nnz; i++){
 		Gtransp->values = G->values;
 		Gtransp->rows = G->cols;
@@ -708,12 +695,8 @@ void transposeCSC(mat_t *G, mat_t *Gtransp){
 	}
 	
 }
-
-
-
-
-
-
+	
+	
 void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned int nthreads){
 	
 	unsigned int i, j, k;
@@ -736,12 +719,6 @@ void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned 
 		}
 	}
 	
-// 	for (i = 0; i < (nthreads + 1); i++) printf("%u, ", limits[i]);
-// 	printf("\n");
-// 	
-// 	for (i = 0; i < (nthreads + 1); i++) printf("%u, ", rowlim[i]);
-// 	printf("\n");
-	
 	counter = 0;
 	
 	for (i = 0; i < Gtransp->size; i++){
@@ -758,17 +735,7 @@ void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned 
 		}
 	}
 	
-// 	for (i = 0; i < (nthreads); i++) printf("%u, ", counterrows[i]);
-// 	printf("\n");
-	
-	
-	
-// 	for (i = 0; i < Gtransp->nnz; i++) printf("%u\t%u\t%lf\t\t\t%lf\n", GtranspCOO->rows[i], GtranspCOO->cols[i], GtranspCOO->values[i], getvalue_matCSC(GtranspCOO->rows[i], GtranspCOO->cols[i], Gtransp));
-	
-	
 	free(counterrows);
 	free(rowlim);
 	free(contr);
 }
-	
-	

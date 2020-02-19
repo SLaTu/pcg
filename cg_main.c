@@ -385,6 +385,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	G->size = A->size;
 	Gtransp->size = A->size;
 	
+	double *xrow = calloc(A->size, sizeof(double));
 	
 	double *s = calloc(A->size, sizeof(double));
 	double *r = calloc(A->size, sizeof(double));
@@ -400,10 +401,10 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	start_usec = omp_get_wtime();														/* PRECONDITIONER + TRANSPOSED */
 	precond(A, G, r);
 	end_usec = omp_get_wtime();
-	printf("Preconditioning Time: %lf", end_usec - start_usec);
+	printf("\nPreconditioning Time: %lf\n", end_usec - start_usec);
 	transposeCSC(G, Gtransp);
 	start_usec = omp_get_wtime();
-	printf("\nTransposing Time: %lf\n\n", start_usec - end_usec);
+	printf("Transposing Time: %lf\n", start_usec - end_usec);
 	
 	
 	char buf_p[256];
@@ -490,6 +491,8 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		/* END GET CACHE MISSES */
 		
 		
+		
+		
 		d_new = multVectVect(d, r, A->size);										/* d_new = d * r */
 		double norm_b = multVectVect(b, b, A->size);
 		double norm_r = sqrt(multVectVect(r, r, A->size));
@@ -541,6 +544,34 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 // 			elapses[i] = end_usec - start_usec;
 			norm_r = sqrt(cblas_ddot(A->size, r, 1, r, 1));
 			residuals[i] = norm_r/norm_b;
+			
+			
+			if ((i%10 == 0)){
+				
+				pmultMatVect(tmp, b, G);
+				pzerovect(xrow, A->size);
+				pmultMatVectCOO(xrow, tmp, GtranspCOO, limits, nthreads);
+				
+				char bufres[256];
+				snprintf(bufres, sizeof bufres, "../Outputs/cg/DataCG/residual/resid_%s_%i_%i_%i", matname, patternpower, percentpattern, i);
+				FILE *resfig = fopen(bufres, "a");
+				double sum = 0.0, sumxrow = 0.0;
+				int pos = 0;
+				double avg = 0.0, avgxrows = 0.0;
+				for(int j = 0; j < A->size; j++){
+					sum += r[j]*r[j];
+					sumxrow += (x[j] - xrow[j]) * (x[j] - xrow[j]);
+					if ((j%1000 == 0) && (j > 0)){
+						avg = sum / 1000.0;
+						avgxrows = sumxrow / 1000.0;
+						fprintf(resfig, "%i %.20lf %.20lf\n", pos, avg, avgxrows);
+						pos++;
+						sum = 0.0;
+						sumxrow = 0.0;
+					}
+				}
+				fclose(resfig);
+			}
 			
 			if ( isless(residuals[i], err) ) {
 // 				end_usec = 0.0;
@@ -631,7 +662,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	
 	char buffig[256];
-	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%.1e", matname, err);
+	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%i", matname, patternpower);
 	
 	
 	FILE *outmnfig = fopen(buffig, "a");
