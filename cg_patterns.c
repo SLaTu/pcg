@@ -1,10 +1,13 @@
 
 #include "cg_patterns.h"
 
+#define cachesize 8
+
 extern unsigned int percentpattern;
 extern unsigned int patternpower;
 extern FILE *outmn;
 extern char matname[256];
+extern mat_t *powmat;
 
 int compd(const void * a, const void * b){
   if (*(double*)a > *(double*)b) return 1;
@@ -17,14 +20,57 @@ int comp (const void *a, const void *b){
 	int *y = (int *) b;
 	return *x - *y;
 }
-
-
+	
+	
+// void limitexpandpattern(unsigned int dim, pat_t *powerpattern, pat_t *expanded_patt, double *xfinal, mat_t *mat){
+// 	
+// 	int i = 0, j = 0;
+// 	int counter = 0;
+// 	
+// 	pat_t *initialpatt = malloc(sizeof(pat_t));
+// 	initialpatt->nnz = (mat->nnz - dim)/2 + dim;
+// 	initialpatt->cols = calloc(initialpatt->nnz, sizeof(unsigned int));
+// 	initialpatt->rows = calloc(dim + 1, sizeof(unsigned int));
+// 	
+// 	for (i = 0; i < dim; i++){									// For every row in the matrix
+// 		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){		// Gets only lower triangle values
+// 			if (mat->cols[j] <= i){
+// 				initialpatt->cols[counter] = mat->cols[j];
+// 				counter++;
+// 			}
+// 		}
+// 	}
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	
+// 	free(initialpatt);
+// }
+	
+	
 void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal, mat_t *A){
 	
-	int cachesize = 8;
 	
 	int i, j, k, l, m;
-	int cachecol = 0, maxloop = 0, testcol = 0, isincacheline = 0, numrowelems = 0;
+	int cachecol = 0, maxloop = 0, isincacheline = 0, numrowelems = 0;
+	unsigned int testcol = 0;
 	long long cacheline = 0;
 	int *poolcols = malloc(cachesize*pattern->nnz*sizeof(int));
 	int *tmprows = calloc(dim + 1, sizeof(int));
@@ -363,6 +409,38 @@ void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt){
 
 }
 
+void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
+
+	unsigned int i = 0, j = 0;
+	unsigned int counter = 0;
+	unsigned int patterncount = 0;
+
+
+	// WE GET INITIAL PATTERN PROPERLY STORED
+
+	for (i = 0; i < mat->size; i++){	// First get initial pattern
+		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+			if (mat->cols[j] <= i){patterncount++;}
+		}
+		pattern->rows[i + 1] = patterncount;
+	}
+
+	pattern->nnz = patterncount;
+	pattern->cols = malloc(pattern->nnz*sizeof(unsigned int));
+
+	for (i = 0; i < mat->size; i++){
+		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+			if (mat->cols[j] <= i){
+				pattern->cols[counter] = mat->cols[j];
+				counter++;
+			}
+		}
+	}
+	
+	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	
+}
+
 
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 
@@ -497,43 +575,310 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
 	
 	
+// 	optexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
+	
+	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	
+// 	limitexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
+	
+}
+
+
+
+
+
+
+
+void OptpowerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
+	
+	
+	int i, j, k, l;
+	int counter = 0;
+	int elements = 0;
+	unsigned int dim = mat->size;
+	unsigned int *pospower = calloc(dim, sizeof(unsigned int));
+	unsigned int *poscol = calloc(dim, sizeof(unsigned int));
+	
+	pat_t *apower;
+	apower = malloc(sizeof(mat_t));
+	apower->nnz = (mat->nnz - dim)/2 + dim;
+	apower->rows = calloc((dim + 1), sizeof(unsigned int));
+	apower->cols = calloc(apower->nnz, sizeof(unsigned int));
+	
+	pat_t *apowertmp;
+	apowertmp = malloc(sizeof(mat_t));
+	apowertmp->nnz = (mat->nnz - dim)/2 + dim;
+	apowertmp->rows = calloc((dim + 1), sizeof(unsigned int));
+	apowertmp->cols = calloc(10*patternpower*apowertmp->nnz, sizeof(unsigned int));
+	
+	
+	// TEMPORARY
+	pattern->nnz = apower->nnz;
+	pattern->cols = calloc(pattern->nnz, sizeof(unsigned int));
+	// TEMPORARY
+	
+	for (i = 0; i < dim; i++){
+		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+			if (mat->cols[j] <= i){
+				pattern->cols[counter] = mat->cols[j];
+				apower->cols[counter] = mat->cols[j];
+				counter++;
+			}
+		}
+		pattern->rows[i + 1] = counter;
+		apower->rows[i + 1] = counter;
+	}
+	
+	
+	
+	
+	
+	for (int power = 1; power < patternpower; power++){
+		
+		counter = 0;
+		
+		for (j = 0; j < dim; j++){
+			for (k = apower->rows[j]; k < apower->rows[j + 1]; k++){
+				for (l = apower->rows[apower->cols[k]]; l < apower->rows[apower->cols[k] + 1]; l++){
+					if (pospower[apower->cols[l]] == 1){
+						continue;
+					}
+					else {
+						pospower[apower->cols[l]] = 1;
+						poscol[elements] = apower->cols[l];
+						elements++;
+					}
+				}
+			}
+			
+			qsort(poscol, elements, sizeof(unsigned int), comp);
+			
+			for (i = 0; i < elements; i++){
+				apowertmp->cols[counter] = poscol[i];
+				counter++;
+			}
+			apowertmp->rows[j + 1] = counter;
+			
+			for (i = 0; i < elements; i++){
+				pospower[poscol[i]] = 0;
+				poscol[i] = 0;
+			}
+			
+			elements = 0;
+		}
+		
+		apowertmp->nnz = counter;
+		apower->nnz = apowertmp->nnz;
+		apower->cols = realloc(apower->cols, apower->nnz*sizeof(unsigned int));
+		
+		for (j = 0; j < apowertmp->nnz; j++) {
+			apower->cols[j] = apowertmp->cols[j];
+		}
+		for (j = 0; j < (dim + 1); j++) {
+			apower->rows[j] = apowertmp->rows[j];
+		}
+	}
+	
+	
+	
+	free(pattern->cols);
+	free(pattern->rows);
+	
+	
+	pattern->nnz = apower->nnz;
+	pattern->rows = apower->rows;
+	pattern->cols = apower->cols;
+	
+	
+	
+// 	free(apower);
+	free(apowertmp);
+	free(poscol);
+	free(pospower);
+	
+	
+	// AT THIS POINT I MUST HAVE A GOOD pattern
+	
 	optexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
-	
-// 	expandpattern(mat->size, pattern, expanded_patt, xfinal);
-	
 	
 	
 }
 
 
-void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 
-	unsigned int i = 0, j = 0;
+
+
+
+void poweredA(mat_t *mat, unsigned int dim){
+
+	unsigned int i = 0, j = 0, k = 0, l = 0;
 	unsigned int counter = 0;
-	unsigned int patterncount = 0;
-
-
-	// WE GET INITIAL PATTERN PROPERLY STORED
-
-	for (i = 0; i < mat->size; i++){	// First get initial pattern
-		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
-			if (mat->cols[j] <= i){patterncount++;}
-		}
-		pattern->rows[i + 1] = patterncount;
-	}
-
-	pattern->nnz = patterncount;
-	pattern->cols = malloc(pattern->nnz*sizeof(unsigned int));
-
-	for (i = 0; i < mat->size; i++){
-		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
-			if (mat->cols[j] <= i){
-				pattern->cols[counter] = mat->cols[j];
-				counter++;
-			}
-		}
+	unsigned int elements = 0;
+	
+	unsigned int cont = 0;
+	
+	mat_t *apower;
+	apower = malloc(sizeof(mat_t));
+	apower->rows = calloc((dim + 1), sizeof(unsigned int));
+	apower->cols = calloc((10 * mat->nnz), sizeof(unsigned int));
+	apower->values = calloc((10 * mat->nnz), sizeof(unsigned int));
+	
+	mat_t *apowertemp;
+	apowertemp = malloc(sizeof(mat_t));
+	apowertemp->rows = calloc((dim + 1), sizeof(unsigned int));
+	apowertemp->cols = calloc((10 * mat->nnz), sizeof(unsigned int));
+	apowertemp->values = calloc((10 * mat->nnz), sizeof(unsigned int));
+	
+	unsigned int *pospower = calloc(dim, sizeof(unsigned int));
+	unsigned int *poscol = calloc(dim, sizeof(unsigned int));
+	
+	double value1 = 1.0, value2 = 1.0;
+	
+	//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	apower->nnz = mat->nnz;
+	
+	for (i = 0; i < apower->nnz; i++) {
+		apower->cols[i] = mat->cols[i];
+		apower->values[i] = mat->values[i];
 	}
 	
-	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	for (i = 0; i < (dim + 1); i++) {
+		apower->rows[i] = mat->rows[i];
+	}
+	
+	
+	
+	/* POWER A to the patternpower */
+	
+	
+	for (int power = 0; power < 1; power++){
+		
+		for (j = 0; j < dim; j++){
+			for (k = apower->rows[j]; k < apower->rows[j + 1]; k++){
+				for (l = apower->rows[apower->cols[k]]; l < apower->rows[apower->cols[k] + 1]; l++){
+					if (pospower[apower->cols[l]] == 1){
+						continue;
+					}
+					else {
+						pospower[apower->cols[l]] = 1;
+						poscol[elements] = apower->cols[l];
+						elements++;
+					}
+				}
+			}
+			
+			qsort(poscol, elements, sizeof(unsigned int), comp);
+			
+			// Addelements to array
+			for (i = 0; i < elements; i++){
+				apowertemp->cols[counter] = poscol[i];
+				counter++;
+			}
+			apowertemp->rows[j + 1] = counter;
+			
+			
+			for (i = 0; i < elements; i++){
+				pospower[poscol[i]] = 0;
+				poscol[i] = 0;
+			}
+			
+			elements = 0;
+		}
+		
+		apowertemp->nnz = counter;
+		
+		
+		
+// 		#pragma omp parallel for private(k, l, poscol, cont, value1, value2, pospower)
+		for (j = 0; j < dim; j++){
+			for (k = apowertemp->rows[j]; k < apowertemp->rows[j + 1]; k++){
+				for (l = apowertemp->rows[j]; l < apowertemp->rows[j + 1]; l++){
+					pospower[apowertemp->cols[l]] = 1;
+					poscol[cont] = apowertemp->cols[l];
+					cont++;
+				}
+				for (l = apowertemp->rows[apowertemp->cols[k]]; l < apowertemp->rows[apowertemp->cols[k] + 1]; l++){
+					if (pospower[apowertemp->cols[l]] == 1){
+						continue;
+					}
+					else{
+						pospower[apowertemp->cols[l]] = 1;
+						poscol[cont] = apowertemp->cols[l];
+						cont++;
+					}
+				}
+				
+				qsort(poscol, cont, sizeof(unsigned int), comp);
+				
+				for (l = 0; l < cont; l++){
+					
+					value1 = getvalue_mat(j, poscol[l], apower);
+					value2 = getvalue_mat(apowertemp->cols[k], poscol[l], mat);
+					
+					apowertemp->values[k] += (value1*value2);
+				}
+				
+				for (l = 0; l < cont; l++){
+					pospower[poscol[l]] = 0;
+					poscol[l] = 0;
+				}
+				cont = 0;
+			}
+		}
+		
+		counter = 0;
+		for (j = 0; j < apowertemp->nnz; j++) {
+			apower->cols[j] = apowertemp->cols[j];
+			apower->values[j] = apowertemp->values[j];
+		}
+		for (j = 0; j < (dim + 1); j++) {
+			apower->rows[j] = apowertemp->rows[j];
+		}
+		apower->nnz = apowertemp->nnz;
+		
+	}
+	
+/*	
+	for (i = 0; i < 30; i++){
+		for (j = apowertemp->rows[i]; j < apowertemp->rows[i + 1]; j++){
+			printf("%.10lf, ", apowertemp->values[j]);
+		}
+		printf("\n\n");
+		for (j = apower->rows[i]; j < apower->rows[i + 1]; j++){
+			printf("%.10lf, ", apower->values[j]);
+		}
+		printf("\n\n");
+	}
+	printf("\n\n");*/
+	
+	
+	
+	
+	powmat = malloc(sizeof(mat_t));
+	powmat->nnz = apowertemp->nnz;
+	powmat->cols = malloc(powmat->nnz*sizeof(unsigned int));
+	powmat->values = malloc(powmat->nnz*sizeof(double));
+	powmat->size = dim;
+	powmat->rows = malloc((dim + 1) * sizeof(unsigned int));
+	
+	
+	for (j = 0; j < apowertemp->nnz; j++) {
+		powmat->cols[j] = apowertemp->cols[j];
+		powmat->values[j] = apowertemp->values[j];
+	}
+	for (j = 0; j < (dim + 1); j++) {
+		powmat->rows[j] = apowertemp->rows[j];
+	}
+	
+	
+	free(apower->cols);
+	free(apower->rows);
+	free(apower);
+	free(apowertemp->cols);
+	free(apowertemp->rows);
+	free(apowertemp);
+	free(pospower);
+	free(poscol);
 	
 }

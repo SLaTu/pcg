@@ -25,5 +25,10 @@ void transpose(mat_t *G, mat_t *Gtransp);
 void transposeCSC(mat_t *G, mat_t *Gtransp);
 mat_t *inverseD(mat_t *mat);
 void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned int nthreads);
+void filterG(mat_t *G, mat_t *A, unsigned int dim, double *r);
+void smoothmat(mat_t *A);
+void smootharr(double *b, unsigned int dim);
+int sumupdown(mat_t *A, int *col, int ract);
+
 
 #endif // __CG_AUX_H__

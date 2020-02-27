@@ -1,5 +1,6 @@
 
 #include "cg_aux.h"
+#define cachesize 16
 
 extern char matname[256];
 extern int rhs;
@@ -12,6 +13,7 @@ extern unsigned int patternmode;
 extern unsigned int percentpattern;
 extern unsigned int patternpower;
 extern unsigned int reps;
+extern mat_t *powmat;
 
 int cg_config(int argc, char *argv[]) {
 
@@ -28,7 +30,7 @@ int cg_config(int argc, char *argv[]) {
 	mode = atoi(argv[6]);
 	
 	if ((mode == 3) && (argc >= 8)) {
-		patternmode = atoi(argv[6]);
+		patternmode = atoi(argv[7]);
 		
 		if ((patternmode == 4) && (argc >= 9)) {
 			percentpattern = atoi(argv[8]);
@@ -47,6 +49,15 @@ int cg_config(int argc, char *argv[]) {
 			fprintf(stderr, "\nError: Add percentage of elements to add with PCG 3 (e.g.: 100) and pattern power (e.g.: 2).\n\n");
 			return 1;
 		}
+		
+		if ((patternmode == 5) && (argc >= 10)) {
+			percentpattern = atoi(argv[8]);
+			patternpower = atoi(argv[9]);
+		}
+		else if ((patternmode == 3) && (argc < 10)) {
+			fprintf(stderr, "\nError: Add number of adding sweeps with PCG 5 (e.g.: 1, 2...) and pattern power (e.g.: 2).\n\n");
+			return 1;
+		}
 	}
 	else if ((mode == 3) && (argc < 8)) {
 		patternmode = 0;
@@ -54,6 +65,8 @@ int cg_config(int argc, char *argv[]) {
 	
 	if (mode != 3) {patternmode = 0; percentpattern = 0; patternpower = 0;}
 	
+	
+	printf("\n---------------------------------------------------------\n");
 	printf("\nMatrix:\t%s\n", matname);
 	printf("Imax:\t%d\n", imax);
 	printf("Error:\t%.2e\n", err);
@@ -382,6 +395,10 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 			printf("PCG:\tADD PERCENTAGE -> %u\n\n", percentpattern);
 			perclt(mat, pattern, expanded_patt, xfinal);
 			break;
+		case 5:
+			printf("PCG:\tOPTIMIZED POWER %u OF A; SWEEPS: %i\n\n", patternpower, percentpattern);
+			OptpowerA(mat, pattern, expanded_patt, xfinal);
+			break;
 		default:
 			printf("No pattern selected. Running default LOWER TRIANGLE PATTERN\n\n");
 			ltp(mat, pattern, expanded_patt);
@@ -431,6 +448,10 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		
 		unsigned int poscount = 0;
 		
+		/****************************************************************/
+		
+		
+		
 		for (j = 0; j < rowelems; j++){					// Rows construct_mat
 			for (k = 0; k < rowelems; k++){				// Cols construct_mat
 				a[poscount] = getvalue_mat(arrayindex[j], arrayindex[k], mat);
@@ -439,16 +460,80 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 			}
 			b[j] = 0.0;
 			b_res[j] = 0.0;
-// 			b[j] = a[poscount - 1];
-// 			b_res[j] = a[poscount - 1];
 		}
 		b[rowelems - 1] = 1.0;
 		b_res[rowelems - 1] = 1.0;
 		
+
+		
+// 		for (j = 0; j < rowelems; j++){					// Rows construct_mat
+// 			for (k = 0; k < rowelems; k++){				// Cols construct_mat
+// 				a[poscount] = getvalue_mat(arrayindex[j], arrayindex[k], powmat);
+// 				a_res[poscount] = a[poscount];
+// 				poscount++;
+// 			}
+// 			b[j] = getvalue_mat(arrayindex[j], arrayindex[rowelems - 1], mat);
+// 			b_res[j] = getvalue_mat(arrayindex[j], arrayindex[rowelems - 1], mat);
+// 		}
+		
 		
 		/****************************************************************/
 		
+		
+		if ((i >= (mat->size - 1)) && (i < mat->size)){
+			printf("\n\n\t");
+			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
+			printf("\n\n");
+			
+			for (j = 0; j < rowelems; j++){					// Rows construct_mat
+				
+				printf("%i\t", arrayindex[j]);
+				for (k = 0; k < rowelems; k++){				// Cols construct_mat
+					printf("%.4lf\t", a[rowelems*j + k]);
+				}
+				printf("\n");
+			}
+		}
+		
+		
+		if ((i >= (mat->size - 1)) && (i < mat->size)){
+			printf("\n\n\t");
+			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+			printf("\n");
+		}
+		
 		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
+		
+		if ((i >= (mat->size - 1)) && (i < mat->size)){
+			printf("%i\t", i);
+			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+			printf("\n\n");
+		}
+		
+		
+		if ((i >= (mat->size - 1)) && (i < mat->size)){
+			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+				printf("%i\t", mat->cols[j]);
+				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
+					printf("%i\t", mat->cols[k]);
+				}
+				printf("\n");
+			}
+			printf("\n\n");
+		}
+		
+		
+// 		if ((i >= (mat->size - 1)) && (i < mat->size)){
+// 			char buf_x[256];
+// 			snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x.log");
+// 			FILE *log = fopen(buf_x, "w");
+// 			for ( int j = 0; j < rowelems; j++ ) {
+// 				fprintf(log, "%i\t%.8e\n", arrayindex[j], b[j]);
+// 			}
+// 			fclose(log);
+// 		}
+		
+		
 		
 		
 		
@@ -562,61 +647,43 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	
 	// REMOVE ZEROS
 	
-// 	mat_t *gnoz = malloc(sizeof(mat_t));
-// 	
-// 	gnoz->size = G->size;
-// 	gnoz->nnz = G->nnz - zerocounter - diagcounter;
-// 	gnoz->values = calloc(gnoz->nnz, sizeof(double));
-// 	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
-// 	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
-// 
-// 	
-// 	for (i = 0; i < G->size; i++){
-// 		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-// 			if (fabs(G->values[j]) > zero) {
-// 				gnoz->values[counter] = G->values[j];
-// 				gnoz->cols[counter] = G->cols[j];
-// 				counter++;
-// 			}
-// 		}
-// 		gnoz->rows[i + 1] = counter;
-// 	}
-// 
-// 	printf("%u -> %u\n", pattern->nnz, counter);
-// 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
-// 	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+	int counter = 0;
 	
+	mat_t *gnoz = malloc(sizeof(mat_t));
 	
-	// 	4.
-	// 	Drop small entries in G and rescale
-	//
-	
-	
-// 	G->nnz = gnoz->nnz;
-// 	G->values = gnoz->values;
-// 	G->cols = gnoz->cols;
-// 	G->rows = gnoz->rows;
-	
-// 	free(gnoz);
-	
-	
-/*	
-	G->nnz = gnoz->nnz;
+	gnoz->size = G->size;
+	gnoz->nnz = G->nnz - zerocounter - diagcounter;
+	gnoz->values = calloc(gnoz->nnz, sizeof(double));
+	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
+	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
 
-	G->values = realloc(G->values, G->nnz*sizeof(double));
-	G->cols = realloc(G->cols, G->nnz*sizeof(unsigned int));
-	
-	for (i = 0; i < G->nnz; i++){
-		G->values[i] = 0.0;
-		G->cols[i] = 0;
-		G->values[i] = gnoz->values[i];
-		G->cols[i] = gnoz->cols[i];
-	}
 	
 	for (i = 0; i < G->size; i++){
-		G->rows[i] = 0;
-		G->rows[i] = gnoz->rows[i];
-	}*/
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			if (fabs(G->values[j]) > zero) {
+				gnoz->values[counter] = G->values[j];
+				gnoz->cols[counter] = G->cols[j];
+				counter++;
+			}
+		}
+		gnoz->rows[i + 1] = counter;
+	}
+
+	printf("%u -> %u\n", pattern->nnz, counter);
+	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
+	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+	
+	
+// 		4.
+// 		Drop small entries in G and rescale
+	
+	
+	
+	G->nnz = gnoz->nnz;
+	G->values = gnoz->values;
+	G->cols = gnoz->cols;
+	G->rows = gnoz->rows;
+	
 	
 	
 	
@@ -739,3 +806,631 @@ void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned 
 	free(rowlim);
 	free(contr);
 }
+
+
+// Limits G to cache lines of A
+void filterG(mat_t *G, mat_t *A, unsigned int dim, double *r){
+	
+	int i = 0, j = 0, k = 0, l = 0;
+	int cachecol = 0;
+	long long cacheline = 0;
+	unsigned int testcol = 0;
+	int counter = 0;
+	
+	
+	mat_t *Gfinal = malloc(sizeof(mat_t));
+	Gfinal->size = dim;
+	Gfinal->nnz = G->nnz;
+	Gfinal->rows = calloc(dim + 1, sizeof(unsigned int));
+	Gfinal->cols = calloc(Gfinal->nnz, sizeof(unsigned int));
+	
+	printf("\n");
+	
+	for (i = dim - 10; i < dim; i++){
+		printf("%i\t", G->rows[i + 1]);
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			printf("%i\t", G->cols[j]);
+		}
+		printf("\n");
+	}
+	
+	printf("\n");
+	
+	for (i = 0; i < dim; i++){
+		for(j = A->rows[i]; j < A->rows[i + 1]; j++){
+			
+			cachecol = (int) A->cols[j];
+			cacheline = (((long long) &r[A->cols[j]]%64)/8);
+			
+			for (k = 0; k < cachesize; k++){
+				
+				testcol = cachecol - (int) cacheline + k;
+				
+				for (l = G->rows[i]; l < G->rows[i + 1]; l++){
+					if (G->cols[l] == testcol){
+						Gfinal->cols[counter] = testcol;
+						Gfinal->rows[i + 1]++;
+						counter++;
+						break;
+					}
+				}
+				
+				for (l = A->rows[i]; l < A->rows[i + 1]; l++){
+					if (((int) A->cols[l] == testcol) && (testcol != cachecol)){
+						j++;
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	
+	for (i = 1; i < dim + 1; i++){
+		Gfinal->rows[i] += Gfinal->rows[i - 1];
+	}
+	
+	Gfinal->nnz = counter;
+	Gfinal->cols = realloc(Gfinal->cols, Gfinal->nnz*sizeof(unsigned int));
+	
+	printf("Gvalues: %i\nGfinalvalues: %i\n\n", G->nnz, counter);
+	
+	
+	
+	printf("\n");
+	for (i = dim - 10; i < dim; i++){
+		printf("%i\t", Gfinal->rows[i + 1]);
+		for (j = Gfinal->rows[i]; j < Gfinal->rows[i + 1]; j++){
+			printf("%i\t", Gfinal->cols[j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+	
+	G->nnz = Gfinal->nnz;
+	G->cols = Gfinal->cols;
+	G->rows = Gfinal->rows;
+	
+	
+	
+	for (i = dim - 10; i < dim; i++){
+		printf("%i\t", G->rows[i + 1]);
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			printf("%i\t", G->cols[j]);
+		}
+		printf("\n");
+	}
+	
+	printf("\n");
+	
+// 	free(Gfinal);
+}
+
+
+
+int sumupdown(mat_t *A, int *col, int ract){
+	
+	int i = 0; 
+	unsigned int dim = A->size;
+	int row = 0;
+	int elements = 1;
+	int counter = 0;
+	
+	row = ract;
+	for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+		col[counter] = A->cols[i];
+		counter++;
+	}
+	
+	if (ract > 0){
+		row = ract - 1;
+		for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+			col[counter] = A->cols[i];
+			counter++;
+		}
+	}
+	
+	if (ract < (dim - 1)){
+		row = ract + 1;
+		for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+			col[counter] = A->cols[i];
+			counter++;
+		}
+	}
+	
+	qsort(col, counter, sizeof(int), comp);
+	
+	unsigned int *tmpcol = calloc(counter, sizeof(int));
+	tmpcol[0] = col[0];
+	
+	for (i = 1; i < counter; i++){
+		if (col[i] != col[i - 1]){
+			tmpcol[elements] = col[i];
+			elements++;
+		}
+	}
+	
+	col = realloc(col, elements*sizeof(int));
+	for (i = 0; i < elements; i++){
+		col[i] = tmpcol[i];
+	}
+	
+	
+	free(tmpcol);
+	
+	return elements;
+	
+}
+
+
+
+
+
+void smoothmat(mat_t *A){
+	
+	unsigned int dim = A->size;
+	
+	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 5;
+	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
+	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
+	int *storerows = calloc(dim + 1, sizeof(int));
+	unsigned int pos = 0;
+	int i = 0, j = 0;
+	int counter = 0;
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++) storecols[i] = -10;
+	
+	#pragma omp parallel for private(j, counter)
+	for (i = 0; i < dim; i++){
+		
+		counter = 0;
+		
+		int *col = calloc(maxAsizemult, sizeof(int));
+		
+		counter = sumupdown(A, col, i);
+		
+		if (i == 0){
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i + 1, col[j], A))/3.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+		else if (i == (dim - 1)){
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i - 1, col[j], A))/3.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+		else{
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i - 1, col[j], A) + 1.0*getvalue_mat(i + 1, col[j], A))/4.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+			
+		free(col);
+	}
+	
+	
+// 	for (i = 0; i < 10; i++){
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%.2lf\t", storevals[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%i\t", storecols[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%i, ", storerows[i]);
+	
+	
+	
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++){
+		if (storecols[i] > -1){
+			storecols[pos] = storecols[i];
+			storevals[pos] = storevals[i];
+			pos++;
+		}
+	}
+	for (i = 1; i < (dim + 1); i++) storerows[i] += storerows[i - 1];
+	
+	
+	printf("\n\n%i\n\n", pos);
+	
+	storecols = realloc(storecols, pos*sizeof(int));
+	storevals = realloc(storevals, pos*sizeof(double));
+	
+// 	printf("\n");
+// 	for (i = 0; i < 10; i++){
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%.2lf\t", storevals[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%i\t", storecols[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%i, ", storerows[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim + 1; i++) printf("%i, ", storerows[i]);
+	printf("\n");
+	
+	
+	A->values = realloc(A->values, pos*sizeof(double));
+	A->cols = realloc(A->cols, pos*sizeof(unsigned int));
+	
+	
+	for (i = 0; i < pos; i++){
+		A->values[i] = storevals[i];
+		A->cols[i] = (unsigned int) storecols[i];
+	}
+	
+	for (i = 0; i < (dim + 1); i++) A->rows[i] = (unsigned int) storerows[i];
+	
+	A->nnz = pos;
+	
+	
+	
+	
+	
+	for (i = 0; i < dim; i++){
+		for (j = A->rows[i]; j < A->rows[i + 1]; j++){
+			if (A->cols[j] <= i){
+				if (getvalue_mat(i, A->cols[j], A) != getvalue_mat(A->cols[j], i, A)){
+					printf("%i, %i\t", i, A->cols[j]);
+					printf("%lf ", (getvalue_mat(i, A->cols[j], A)));
+					printf("%lf\n", (getvalue_mat(A->cols[j], i, A)));
+				}
+			}
+		}
+	}
+	
+	
+	
+	
+	
+	free(storecols); free(storerows); free(storevals);
+}
+
+
+
+
+
+void smootharr(double *b, unsigned int dim){
+	
+	double *storevals = calloc(dim, sizeof(double));
+	
+	int i = 0;
+	
+	printf("\n");
+	for (i = 0; i < 10; i++) printf("%lf, ", b[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim; i++) printf("%lf, ", b[i]);
+	printf("\n");
+	
+	#pragma omp parallel for
+	for (i = 0; i < dim; i++){
+		
+		if (i == 0){
+			storevals[i] = (2.0*b[i] + 1.0*b[i + 1])/3.0;
+		}
+		else if (i == (dim - 1)){
+			storevals[i] = (2.0*b[i] + 1.0*b[i - 1])/3.0;
+		}
+		else{
+			storevals[i] = (2.0*b[i] + 1.0*b[i + 1] + 1.0*b[i - 1])/4.0;
+		}
+			
+	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%lf, ", storevals[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim; i++) printf("%lf, ", storevals[i]);
+	printf("\n");
+	
+	
+	
+	for (i = 0; i < dim; i++) b[i] = storevals[i];
+	
+	
+	free(storevals);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ------------------------- V2 Filter -------------------------- */
+
+
+
+int sumupdownside(mat_t *A, int *col, int ract){
+	
+	int i = 0; 
+	unsigned int dim = A->size;
+	int row = 0;
+	int elements = 1;
+	int counter = 0;
+	
+	row = ract;
+	for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+		col[counter] = A->cols[i];
+		counter++;
+	}
+	
+	if (ract > 0){
+		row = ract - 1;
+		for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+			col[counter] = A->cols[i];
+			counter++;
+		}
+	}
+	
+	if (ract < (dim - 1)){
+		row = ract + 1;
+		for (i = A->rows[row]; i < A->rows[row + 1]; i++){
+			col[counter] = A->cols[i];
+			counter++;
+		}
+	}
+	
+	qsort(col, counter, sizeof(int), comp);
+	
+	unsigned int *tmpcol = calloc(counter, sizeof(int));
+	tmpcol[0] = col[0];
+	
+	for (i = 1; i < counter; i++){
+		if (col[i] != col[i - 1]){
+			tmpcol[elements] = col[i];
+			elements++;
+		}
+	}
+	
+	col = realloc(col, elements*sizeof(int));
+	for (i = 0; i < elements; i++){
+		col[i] = tmpcol[i];
+	}
+	
+	
+	free(tmpcol);
+	
+	return elements;
+	
+}
+
+
+
+
+
+void smoothmatv2(mat_t *A){
+	
+	unsigned int dim = A->size;
+	
+	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 5;
+	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
+	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
+	int *storerows = calloc(dim + 1, sizeof(int));
+	unsigned int pos = 0;
+	int i = 0, j = 0;
+	int counter = 0;
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++) storecols[i] = -10;
+	
+	#pragma omp parallel for private(j, counter)
+	for (i = 0; i < dim; i++){
+		
+		counter = 0;
+		
+		int *col = calloc(maxAsizemult, sizeof(int));
+		
+		counter = sumupdownside(A, col, i);
+		
+		if (i == 0){
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i + 1, col[j], A))/3.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+		else if (i == (dim - 1)){
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i - 1, col[j], A))/3.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+		else{
+			
+			for (j = 0; j < counter; j++){
+				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i - 1, col[j], A) + 1.0*getvalue_mat(i + 1, col[j], A))/4.0;
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+			}
+			
+		}
+			
+		free(col);
+	}
+	
+	
+// 	for (i = 0; i < 10; i++){
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%.2lf\t", storevals[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%i\t", storecols[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%i, ", storerows[i]);
+	
+	
+	
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++){
+		if (storecols[i] > -1){
+			storecols[pos] = storecols[i];
+			storevals[pos] = storevals[i];
+			pos++;
+		}
+	}
+	for (i = 1; i < (dim + 1); i++) storerows[i] += storerows[i - 1];
+	
+	
+	printf("\n\n%i\n\n", pos);
+	
+	storecols = realloc(storecols, pos*sizeof(int));
+	storevals = realloc(storevals, pos*sizeof(double));
+	
+// 	printf("\n");
+// 	for (i = 0; i < 10; i++){
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%.2lf\t", storevals[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 		for (j = 0; j < maxAsizemult; j++){
+// 			printf("%i\t", storecols[maxAsizemult*i + j]);
+// 		}
+// 		printf("\n");
+// 	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%i, ", storerows[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim + 1; i++) printf("%i, ", storerows[i]);
+	printf("\n");
+	
+	
+	A->values = realloc(A->values, pos*sizeof(double));
+	A->cols = realloc(A->cols, pos*sizeof(unsigned int));
+	
+	
+	for (i = 0; i < pos; i++){
+		A->values[i] = storevals[i];
+		A->cols[i] = (unsigned int) storecols[i];
+	}
+	
+	for (i = 0; i < (dim + 1); i++) A->rows[i] = (unsigned int) storerows[i];
+	
+	A->nnz = pos;
+	
+	
+	
+	
+	
+	for (i = 0; i < dim; i++){
+		for (j = A->rows[i]; j < A->rows[i + 1]; j++){
+			if (A->cols[j] <= i){
+				if (getvalue_mat(i, A->cols[j], A) != getvalue_mat(A->cols[j], i, A)){
+					printf("%i, %i\t", i, A->cols[j]);
+					printf("%lf ", (getvalue_mat(i, A->cols[j], A)));
+					printf("%lf\n", (getvalue_mat(A->cols[j], i, A)));
+				}
+			}
+		}
+	}
+	
+	
+	
+	
+	
+	free(storecols); free(storerows); free(storevals);
+}
+
+
+
+
+
+void smootharrv2(double *b, unsigned int dim){
+	
+	double *storevals = calloc(dim, sizeof(double));
+	
+	int i = 0;
+	
+	printf("\n");
+	for (i = 0; i < 10; i++) printf("%lf, ", b[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim; i++) printf("%lf, ", b[i]);
+	printf("\n");
+	
+	#pragma omp parallel for
+	for (i = 0; i < dim; i++){
+		
+		if (i == 0){
+			storevals[i] = (2.0*b[i] + 1.0*b[i + 1])/3.0;
+		}
+		else if (i == (dim - 1)){
+			storevals[i] = (2.0*b[i] + 1.0*b[i - 1])/3.0;
+		}
+		else{
+			storevals[i] = (2.0*b[i] + 1.0*b[i + 1] + 1.0*b[i - 1])/4.0;
+		}
+			
+	}
+	
+	
+	for (i = 0; i < 10; i++) printf("%lf, ", storevals[i]);
+	printf("\n");
+	for (i = dim - 10; i < dim; i++) printf("%lf, ", storevals[i]);
+	printf("\n");
+	
+	
+	
+	for (i = 0; i < dim; i++) b[i] = storevals[i];
+	
+	
+	free(storevals);
+}
+
+
+
+
+
+
+

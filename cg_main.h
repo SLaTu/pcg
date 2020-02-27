@@ -45,4 +45,5 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv);
 double *cg_precond(mat_t *A, double *x, double *b, char *argv);
 
 
+
 #endif //__CG_MAIN_H__ 

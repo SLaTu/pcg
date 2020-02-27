@@ -21,6 +21,7 @@ unsigned int patternpower;
 unsigned int bsize;
 unsigned int reps;
 int rhs;
+mat_t *powmat;
 
 /*
  * 
@@ -51,9 +52,16 @@ int main(int argc, char *argv[]){
 		readrhs(b, argv[1], A->size);
 	}
 	else {
-		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180) ;
+		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180);
+// 		for (j = 0; j < A->size; j++) b[j] = 0.0;
+// 		b[A->size - 1] = 1.0;
 		pmultMatVect(b, x, A);
 		for (j = 0; j < A->size; j++) x[j] = 0.0;
+		
+// 		for (j = 0; j < A->size; j++) x[j] = 1.0;
+// 		pmultMatVect(b, x, A);
+// 		for (j = 0; j < A->size; j++) x[j] = 0.0;
+		
 	}
 	
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -72,7 +80,11 @@ int main(int argc, char *argv[]){
 		return 0;
 	}
 	
-
+	
+// 	smoothmatv2(A);
+// 	smootharrv2(b, A->size);
+	
+	
 	switch ( mode ) {
 		case 1: 
 			printf("Mode:\tBase CG\n");
@@ -91,9 +103,20 @@ int main(int argc, char *argv[]){
 			break;
 	}
 	
-// 	for (j = 196045; j < 196055; j++) printf("%lf, ", x[j]);
-// 	printf("\n");
-
+	
+	
+	
+	char buf_x[256];
+	snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x_%i_%i.log", percentpattern, patternpower);
+	FILE *log = fopen(buf_x, "w");
+	for ( int i = 0; i < A->size; i++ ) {
+		fprintf(log, "%i\t%.8e\n", i, x[i]);
+	}
+	fclose(log);
+	
+	
+	
+	
 	fclose(outmn);
 	free(A);
 	free(b);
@@ -398,10 +421,20 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	double *elapses = malloc(imax * sizeof(double));
 	double *dnew = malloc(imax * sizeof(double));
 	
-	start_usec = omp_get_wtime();														/* PRECONDITIONER + TRANSPOSED */
+	
+// 	poweredA(A, A->size);
+	
+	
+	
+	start_usec = omp_get_wtime();											/* PRECONDITIONER + TRANSPOSED */
 	precond(A, G, r);
 	end_usec = omp_get_wtime();
 	printf("\nPreconditioning Time: %lf\n", end_usec - start_usec);
+	
+	
+// 	filterG(G, A, A->size, r);
+	
+	
 	transposeCSC(G, Gtransp);
 	start_usec = omp_get_wtime();
 	printf("Transposing Time: %lf\n", start_usec - end_usec);
@@ -576,7 +609,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 			if ( isless(residuals[i], err) ) {
 // 				end_usec = 0.0;
 // 				for (int j = 0; j < i; j++) end_usec += elapses[j];
-// 				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
+				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e\n\n", i, residuals[i]);
 				break;
 			}
 		}
@@ -584,7 +617,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 // 		printf("tmult: %lf\t\tdcmmult: %.4e\txdcmmult: %.4e\nttransp: %lf\tdcmtransp: %.4e\txdcmtransp: %.4e\n\n", tmult/((double) i), (double) dcmnorm/((double) i), (double) xdcmnorm, ttransp/((double) i), (double) dcmtransp/((double) i), (double) xdcmtransp);
 		
-		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i]);
+		if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i-1]);
 		
 		
 		
@@ -700,6 +733,71 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	fclose(outmnfig);
 	
 // 	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	
+	
+	
+	
+	
+/*	
+	
+	
+	unsigned int dim = A->size;
+	int testcol = 0;
+	int cachesize = 8;
+	
+	unsigned int *positions = calloc(dim, sizeof(unsigned int));
+	
+	int cachecol = 0;
+	long long cacheline = 0;
+	
+	for (i = A->rows[dim - 1]; i < A->rows[dim]; i++){
+		cachecol = (int) A->cols[i];
+		cacheline = (((long long) &r[A->cols[i]]%64)/8);
+		
+		for (int k = 0; k < cachesize; k++){
+			testcol = cachecol - (int) cacheline + k;
+			if ((testcol >= 0) && (testcol <= i)){
+				positions[testcol] = 1;
+			}
+			
+		}
+		
+	}
+	
+	
+	for (i = 0; i < dim; i++){
+		if (positions[i] == 1){
+			printf("%i\t", i);
+		}
+	}
+	printf("\n");
+	
+	for (i = 0; i < dim; i++){
+		if (positions[i] == 1){
+// 			printf("%.2lf\t", x[i]);
+			printf("%.2lf\t", getvalue_mat(dim - 1, i, G));
+			
+		}
+	}
+	printf("\n");
+	
+	
+	
+	
+	
+	*/
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	free(dumm); free(r); free(d); free(q); free(s); free(tmp); free(G); free(residuals); free(elapses); free(dnew);
 	
