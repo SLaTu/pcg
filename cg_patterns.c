@@ -22,48 +22,6 @@ int comp (const void *a, const void *b){
 }
 	
 	
-// void limitexpandpattern(unsigned int dim, pat_t *powerpattern, pat_t *expanded_patt, double *xfinal, mat_t *mat){
-// 	
-// 	int i = 0, j = 0;
-// 	int counter = 0;
-// 	
-// 	pat_t *initialpatt = malloc(sizeof(pat_t));
-// 	initialpatt->nnz = (mat->nnz - dim)/2 + dim;
-// 	initialpatt->cols = calloc(initialpatt->nnz, sizeof(unsigned int));
-// 	initialpatt->rows = calloc(dim + 1, sizeof(unsigned int));
-// 	
-// 	for (i = 0; i < dim; i++){									// For every row in the matrix
-// 		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){		// Gets only lower triangle values
-// 			if (mat->cols[j] <= i){
-// 				initialpatt->cols[counter] = mat->cols[j];
-// 				counter++;
-// 			}
-// 		}
-// 	}
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	
-// 	free(initialpatt);
-// }
-	
 	
 void optexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal, mat_t *A){
 	

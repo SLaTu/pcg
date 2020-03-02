@@ -42,7 +42,8 @@ static inline __attribute__((always_inline)) void print_pattern(char *name, mat_
 
 double *cg_base(mat_t *A, double *x, double *b);  
 double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv);
-double *cg_precond(mat_t *A, double *x, double *b, char *argv);
+double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx);
+void lu(mat_t *A, double *x, double *b, double *initx, double *initb);
 
 
 

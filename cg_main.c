@@ -45,6 +45,8 @@ int main(int argc, char *argv[]){
 	}
 	double *b = calloc(A->size, sizeof(double));
 	double *x = calloc(A->size, sizeof(double));
+	double *initx = malloc(A->size*sizeof(double));
+	double *initb = malloc(A->size*sizeof(double));
 	
 	fprintf(stdout, "RHS:\t%i\n", rhs);
 	
@@ -52,17 +54,20 @@ int main(int argc, char *argv[]){
 		readrhs(b, argv[1], A->size);
 	}
 	else {
-		for (j = 0; j < A->size; j++) x[j] = sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180);
-// 		for (j = 0; j < A->size; j++) b[j] = 0.0;
-// 		b[A->size - 1] = 1.0;
+		for (j = 0; j < A->size; j++) {
+			x[j] = 0.0; //sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180);
+			initx[j] = x[j];
+		}
+		x[A->size - 1] = 1.0;
+		initx[A->size - 1] = 1.0;
 		pmultMatVect(b, x, A);
-		for (j = 0; j < A->size; j++) x[j] = 0.0;
-		
-// 		for (j = 0; j < A->size; j++) x[j] = 1.0;
-// 		pmultMatVect(b, x, A);
-// 		for (j = 0; j < A->size; j++) x[j] = 0.0;
-		
+		for (j = 0; j < A->size; j++) {
+			initb[j] = b[j];
+			x[j] = 0.0; 
+		}
 	}
+	
+	
 	
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
@@ -81,8 +86,6 @@ int main(int argc, char *argv[]){
 	}
 	
 	
-// 	smoothmatv2(A);
-// 	smootharrv2(b, A->size);
 	
 	
 	switch ( mode ) {
@@ -96,24 +99,16 @@ int main(int argc, char *argv[]){
 			break;
 		case 3: 
 			printf("Mode:\tPCG\n");
-			x = cg_precond(A, x, b, argv[1]);
+			x = cg_precond(A, x, b, argv[1], initx);
+			break;
+		case 4: 
+			printf("Mode:\tLU\n");
+			lu(A, x, b, initx, initb);
 			break;
 		default:
 			printf("No algorithm selected.\n");
 			break;
 	}
-	
-	
-	
-	
-	char buf_x[256];
-	snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x_%i_%i.log", percentpattern, patternpower);
-	FILE *log = fopen(buf_x, "w");
-	for ( int i = 0; i < A->size; i++ ) {
-		fprintf(log, "%i\t%.8e\n", i, x[i]);
-	}
-	fclose(log);
-	
 	
 	
 	
@@ -247,6 +242,8 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 	double *elapses = malloc(imax * sizeof(double));
 	double *dnew = malloc(imax * sizeof(double));
 	
+// 	printmat(A);
+	
 	mat_t *D_1;
 	
 	D_1 = malloc(sizeof(mat_t));
@@ -255,30 +252,30 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 	D_1->cols = malloc(A->size*sizeof(unsigned int));
 	D_1->rows = malloc((A->size + 1)*sizeof(unsigned int));
 	
-	r = malloc(A->size*sizeof(double));
-	d = malloc(A->size*sizeof(double));
-	q = malloc(A->size*sizeof(double));
-	s = malloc(A->size*sizeof(double));
-	tmp = malloc(A->size*sizeof(double));
+	r = calloc(A->size, sizeof(double));
+	d = calloc(A->size, sizeof(double));
+	q = calloc(A->size, sizeof(double));
+	s = calloc(A->size, sizeof(double));
+	tmp = calloc(A->size, sizeof(double));
 	
 	// Inverse diagonal A
 	D_1 = inverseD(A);
-	
+
 	// r = b - A * x
 	pmultMatVect(tmp, x, A);
+
 	psubtVects(b, tmp, r, A->size);
-	
+
 	// d = M^-1 * r      // MODIFY
 	
 	pmultMatVect(d, r, D_1); // instead of A D^-1
-	
+
 	// dnew = r^T * d
 	d_new = multVectVect(d, r, A->size);
-	double norm_b = multVectVect(b, b, A->size);
+	double norm_b = sqrt(multVectVect(b, b, A->size));
 	double norm_r = sqrt(multVectVect(r, r, A->size));
 	for (i = 0; i < imax; i++){
 		start_usec = omp_get_wtime();											/* BEGIN CG ITERATION */
-		
 		// q = A * d
 		pmultMatVect(q, d, A);
 		
@@ -329,6 +326,7 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 			break;
 		}
 	}
+	if (i == (imax)) printf("No convergence. Residual = %.4e\n\n", residuals[i-1]);
 	
 	for (j = 0; j <= i; j++) sumelapses += elapses[j]; 
 	
@@ -342,10 +340,9 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 	dump_info(buf_t, i, residuals, elapses, dnew);
 	
 	
-// 	for (i = 0; i < A->size; i++) printf("%.4e, ", x[i]);
-	
 		
 	free(d); free(r); free(q); free(s); free(D_1); free(tmp);
+	
 	return x;
 }
 
@@ -357,7 +354,7 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
  * 
  */
 
-double *cg_precond(mat_t *A, double *x, double *b, char *argv){
+double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 
 	unsigned int i = 0;
 	int m = 0;
@@ -527,7 +524,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 		
 		
 		d_new = multVectVect(d, r, A->size);										/* d_new = d * r */
-		double norm_b = multVectVect(b, b, A->size);
+		double norm_b = sqrt(multVectVect(b, b, A->size));
 		double norm_r = sqrt(multVectVect(r, r, A->size));
 		start_usec = omp_get_wtime();
 		for (i = 0; i < imax; i++){
@@ -610,6 +607,24 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 // 				end_usec = 0.0;
 // 				for (int j = 0; j < i; j++) end_usec += elapses[j];
 				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e\n\n", i, residuals[i]);
+				printf("RESULTING X\n\n");
+				for (int j = 0; j < 5; j++){
+					printf("%.4lf\t", x[j]);
+				}
+				printf("\n");
+				
+				if (A->size > 10){
+				for (int j = A->size/2; j < A->size/2 + 5; j++){
+					printf("%.4lf\t", x[j]);
+				}
+				printf("\n");
+				}
+				
+				
+				for (int j = A->size - 5; j < A->size; j++){
+					printf("%.4lf\t", x[j]);
+				}
+				printf("\n\n");
 				break;
 			}
 		}
@@ -790,7 +805,13 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	
 	
-	
+	char buf_x[256];
+	snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x_%s.log", matname);
+	FILE *logt = fopen(buf_x, "w");
+	for ( int i = 0; i < A->size; i++ ) {
+		fprintf(logt, "%i\t%.8e\t%.8e\n", i, x[i], initx[i]);
+	}
+	fclose(logt);
 	
 	
 	
@@ -806,5 +827,90 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv){
 	
 	return x;
 }
+
+
+
+
+
+void lu(mat_t *A, double *x, double *b, double *initx, double *initb){
+	
+	unsigned int dim = A->size;
+	
+	
+	printmat(A);
+	smoothmatLLt(A);
+	
+	
+	printf("\n\nREAL X\n");
+	printarr(initx, dim);
+	printf("B\n");
+	printarr(b, dim);
+	
+	smootharrL(b, dim);
+	smootharrL(initb, dim);
+	
+	impLU(A, dim, b);
+	
+	printf("SMOOTH B\n");
+	printarr(b, dim);
+	
+	solveLU(A, dim, b);
+	
+	printf("LU X (Z)\n");
+	printarr(b, dim);
+	
+	
+	double *bax = calloc(dim, sizeof(double));
+	double *tmp = calloc(dim, sizeof(double));
+	pmultMatVect(tmp, b, A);
+	backsmootharrLt(b, dim);
+	
+	printf("X\n");
+	printarr(b, dim);
+	
+	
+	double norm_bax = 0.0;
+	for (int i = 0; i < dim; i++){
+		bax[i] = initb[i] - tmp[i];
+		norm_bax += (initb[i] - tmp[i])*(initb[i] - tmp[i]);
+	}
+	
+	printf("BAX\n");
+	printarr(bax, dim);
+	
+	printf("NORM BAX:\t%.2e\n\n", sqrt(norm_bax));
+	
+	
+	
+	
+	char buf_x[256];
+	snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x_%s.log", matname);
+	FILE *logt = fopen(buf_x, "w");
+	for ( int i = 0; i < dim; i++ ) {
+		fprintf(logt, "%i\t%.8e\t%.8e\n", i, b[i], initx[i]);
+	}
+	fclose(logt);
+	
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
