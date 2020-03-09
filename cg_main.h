@@ -26,11 +26,11 @@ static inline __attribute__((always_inline)) void dump_info(char *name, int k, d
 	fclose(log);
 }
 
-static inline __attribute__((always_inline)) void print_pattern(char *name, mat_t *G)
+static inline __attribute__((always_inline)) void print_pattern(char *name, mat_t *G, int lim)
 {
 	FILE *log = fopen(name, "w");
-	fprintf(log, "%i %i %i\n", G->size, G->size, G->nnz);
-	for ( int i = 0; i < G->size; i++ ) {
+// 	fprintf(log, "%i %i %i\n", G->size, G->size, G->nnz);
+	for ( int i = 0; i < lim; i++ ) {
 		for(int j = G->rows[i]; j < G->rows[i + 1]; j++){
 			fprintf(log, "%i %i %lf\n", i, G->cols[j], G->values[j]);
 		}

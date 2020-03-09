@@ -16,6 +16,7 @@ void ltp(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);
 void flt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt);
 void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
+void powerAf(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void OptpowerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void poweredA(mat_t *mat, unsigned int dim);
 

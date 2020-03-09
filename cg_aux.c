@@ -3,6 +3,9 @@
 #define cachesize 8
 #define widthprint 8
 
+double mainval = 16.0;
+double sideval = 1.0;
+
 extern char matname[256];
 extern int rhs;
 extern int mode;
@@ -59,6 +62,15 @@ int cg_config(int argc, char *argv[]) {
 			fprintf(stderr, "\nError: Add number of adding sweeps with PCG 5 (e.g.: 1, 2...) and pattern power (e.g.: 2).\n\n");
 			return 1;
 		}
+		
+		if ((patternmode == 6) && (argc >= 10)) {
+			percentpattern = atoi(argv[8]);
+			patternpower = atoi(argv[9]);
+		}
+		else if ((patternmode == 3) && (argc < 10)) {
+			fprintf(stderr, "\nError: Add percentage of elements to add with PCG 6 (e.g.: 100) and pattern power (e.g.: 2).\n\n");
+			return 1;
+		}
 	}
 	else if ((mode == 3) && (argc < 8)) {
 		patternmode = 0;
@@ -68,7 +80,9 @@ int cg_config(int argc, char *argv[]) {
 	
 	
 	printf("\n---------------------------------------------------------\n");
+	fprintf(stderr, "---------------------------------------------------------\n\n");
 	printf("\nMatrix:\t%s\n", matname);
+	fprintf(stderr, "Matrix:\t%s\n\n", matname);
 	printf("Imax:\t%d\n", imax);
 	printf("Error:\t%.2e\n", err);
 	printf("\n---------------------------------------------------------\n\n");
@@ -97,8 +111,51 @@ int cg_setup(char* matname, mat_t *mat){
 		
 		num = 0;
 		
+// 		while(fscanf(fp, "%lf", &num) == 1){
+// 			
+// 			if (count == 0){
+// 				mat->size = (unsigned int) num;
+// 			}
+// 			else if (count == 1){}
+// 			else if (count == 2){
+// 				mat->nnz = (unsigned int) num;
+// 				mat->values = malloc(mat->nnz*sizeof(double));
+// 				mat->cols = malloc(mat->nnz*sizeof(unsigned int));
+// 				mat->rows = malloc((mat->size + 1) * sizeof(unsigned int));
+// 				mat->rows[0] = 0;
+// 			}
+// 			else if (count == 4){
+// 				mat->cols[((i - 1)/3) - 1] = (unsigned int) num - 1;
+// 			}
+// 			else if (count == 3){
+// 				rowvalue = num - 1;
+// 				if ((rowvalue-cmp) > 1){
+// 					for (j = cmp; j < rowvalue; j++){
+// 						position++;
+// 						mat->rows[position] = acum;
+// 					}
+// 					cmp = rowvalue;
+// 					acum++;
+// 				}
+// 				else if ((rowvalue - cmp) == 1){
+// 					position++;
+// 					cmp = rowvalue;
+// 					mat->rows[position] = acum;
+// 					acum++;
+// 				}
+// 				else{acum++;}
+// 			}
+// 			else if (count == 5){
+// 				mat->values[(i - 2)/3 - 1] = num;
+// 			}
+// 			else {}
+// 			i++;
+// 			count++;
+// 			if (count == 6) count = 3;
+// 		}
+		
 		while(fscanf(fp, "%lf", &num) == 1){
-			
+
 			if (count == 0){
 				mat->size = (unsigned int) num;
 			}
@@ -110,10 +167,10 @@ int cg_setup(char* matname, mat_t *mat){
 				mat->rows = malloc((mat->size + 1) * sizeof(unsigned int));
 				mat->rows[0] = 0;
 			}
-			else if (count == 4){
-				mat->cols[((i - 1)/3) - 1] = (unsigned int) num - 1;
-			}
 			else if (count == 3){
+				mat->cols[i/3 - 1] = (unsigned int) num - 1;
+			}
+			else if (count == 4){
 				rowvalue = num - 1;
 				if ((rowvalue-cmp) > 1){
 					for (j = cmp; j < rowvalue; j++){
@@ -139,12 +196,13 @@ int cg_setup(char* matname, mat_t *mat){
 			count++;
 			if (count == 6) count = 3;
 		}
+		
 	}
 	for (i = (position + 1); i < (mat->size + 1); i++){mat->rows[i] = acum;}
 	if (fp != stdin) fclose (fp);   /* close file if not stdin */
 	if (line) free(line);
 	
-	
+	fprintf(stderr, "INITIAL NNZ: %i\tLT: %i\n", mat->nnz, (mat->nnz-mat->size)/2 + mat->size);
 	return 0;
 }
 
@@ -232,8 +290,8 @@ void printmat(mat_t *A){
 			printf("%*i", widthprint, i);
 			place = 0;
 			for (int j = 0; j < lim; j++){
-				if (j == A->cols[A->rows[i] + place]){
-					printf("%*.3lf", widthprint, A->values[A->rows[i] + place]);
+				if ((j == A->cols[A->rows[i] + place]) && (place < (A->rows[i + 1] - A->rows[i]))){
+					printf("%*.1e", widthprint, A->values[A->rows[i] + place]);
 					place++;
 				}
 				else {
@@ -259,8 +317,8 @@ void printmat(mat_t *A){
 			printf("%*i", widthprint, i);
 			place = 0;
 			for (int j = 0; j < lim; j++){
-				if (j == A->cols[A->rows[i] + place]){
-					printf("%*.3lf", widthprint, A->values[A->rows[i] + place]);
+				if ((j == A->cols[A->rows[i] + place]) && (place < (A->rows[i + 1] - A->rows[i]))){
+					printf("%*.1e", widthprint, A->values[A->rows[i] + place]);
 					place++;
 				}
 				else {
@@ -273,7 +331,6 @@ void printmat(mat_t *A){
 		printf("\n");
 		printf("\n");
 	}
-
 }
 
 
@@ -281,22 +338,24 @@ void printarr(double *arr, unsigned int dim){
 	
 	
 	if (dim > 10){
+		printf("\t");
 		for (int j = 0; j < 5; j++){
-			printf("%.4lf\t", arr[j]);
+			printf("%*.2lf", widthprint, arr[j]);
 		}
-		printf("\n");
+		printf("\n\t");
 		for (int j = dim/2; j < dim/2 + 5; j++){
-			printf("%.4lf\t", arr[j]);
+			printf("%*.2lf", widthprint, arr[j]);
 		}
-		printf("\n");
+		printf("\n\t");
 		for (int j = dim - 5; j < dim; j++){
-			printf("%.4lf\t", arr[j]);
+			printf("%*.2lf", widthprint, arr[j]);
 		}
 		printf("\n\n");
 	}
 	else {
+		printf("\t");
 		for (int j = 0; j < dim; j++){
-			printf("%.4lf\t", arr[j]);
+			printf("%*.2lf", widthprint, arr[j]);
 		}
 		printf("\n\n");
 	}
@@ -464,7 +523,6 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	pat_t *expanded_patt = malloc(sizeof(pat_t));
 	expanded_patt->rows = calloc((G->size + 1), sizeof(unsigned int));
 	
-	
 	// ---------------------------------------------------------------
 	
 	// PATTERNS
@@ -480,14 +538,16 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 			break;
 		case 3:
 			printf("PCG:\tPOWER %u OF A\n\n", patternpower);
+			fprintf(stderr, "\tPOWER %u OF A\n", patternpower);
 			powerA(mat, pattern, expanded_patt, xfinal);
 			break;
 		case 4:
-			printf("PCG:\tADD PERCENTAGE -> %u\n\n", percentpattern);
+			printf("PCG:\tParallel ADD PERCENTAGE -> %u\n\n", percentpattern);
 			perclt(mat, pattern, expanded_patt, xfinal);
 			break;
 		case 5:
 			printf("PCG:\tOPTIMIZED POWER %u OF A; SWEEPS: %i\n\n", patternpower, percentpattern);
+			fprintf(stderr, "\tOPTIMIZED POWER %u OF A; SWEEPS: %i\n", patternpower, percentpattern);
 			OptpowerA(mat, pattern, expanded_patt, xfinal);
 			break;
 		default:
@@ -516,7 +576,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	double *residrow = calloc(mat->size, sizeof(double));
 	double *errrow = calloc(mat->size, sizeof(double));
 	
-// 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
+	#pragma omp parallel for private(j, k) reduction(+:totalresid)
 	for (i = 0; i < mat->size; i++){					// For every row in the matrix
 		
 		unsigned int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
@@ -571,47 +631,47 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		/****************************************************************/
 		
 		
-		if ((i >= (mat->size - 1)) && (i < mat->size)){
-			printf("\n\n\t");
-			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
-			printf("\n\n");
-			
-			for (j = 0; j < rowelems; j++){					// Rows construct_mat
-				
-				printf("%i\t", arrayindex[j]);
-				for (k = 0; k < rowelems; k++){				// Cols construct_mat
-					printf("%.4lf\t", a[rowelems*j + k]);
-				}
-				printf("\n");
-			}
-		}
-		
-		
-		if ((i >= (mat->size - 1)) && (i < mat->size)){
-			printf("\n\n\t");
-			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-			printf("\n");
-		}
+// 		if ((i >= 322) && (i < 323)){
+// 			printf("\n\n\t");
+// 			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
+// 			printf("\n\n");
+// 			
+// 			for (j = 0; j < rowelems; j++){					// Rows construct_mat
+// 				
+// 				printf("%i\t", arrayindex[j]);
+// 				for (k = 0; k < rowelems; k++){				// Cols construct_mat
+// 					printf("%.4lf\t", a[rowelems*j + k]);
+// 				}
+// 				printf("\n");
+// 			}
+// 		}
+// 		
+// 		
+// 		if ((i >= 322) && (i < 323)){
+// 			printf("\n\n\t");
+// 			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+// 			printf("\n");
+// 		}
 		
 		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
 		
-		if ((i >= (mat->size - 1)) && (i < mat->size)){
-			printf("%i\t", i);
-			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-			printf("\n\n");
-		}
-		
-		
-		if ((i >= (mat->size - 1)) && (i < mat->size)){
-			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
-				printf("%i\t", mat->cols[j]);
-				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
-					printf("%i\t", mat->cols[k]);
-				}
-				printf("\n");
-			}
-			printf("\n\n");
-		}
+// 		if ((i >= 322) && (i < 323)){
+// 			printf("%i\t", i);
+// 			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+// 			printf("\n\n");
+// 		}
+// 		
+// 		
+// 		if ((i >= 322) && (i < 323)){
+// 			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+// 				printf("%i\t", mat->cols[j]);
+// 				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
+// 					printf("%i\t", mat->cols[k]);
+// 				}
+// 				printf("\n");
+// 			}
+// 			printf("\n\n");
+// 		}
 		
 		
 // 		if ((i >= (mat->size - 1)) && (i < mat->size)){
@@ -708,7 +768,6 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	
 	printf("\nINVERSE: Accumulated Residual: %.2e\n", totalresid);
 		
-		
 	double *diag;
 	unsigned int diagcounter = 0, zerocounter = 0;
 	diag = calloc(G->size, sizeof(double));
@@ -734,6 +793,8 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	}
 	
 	printf("INVERSE: %u zeroes in diag\nINVERSE: %u zeroes in matrix\n", diagcounter, zerocounter);
+	
+	fprintf(stderr, "INVERSE: %u zeroes in diag\tINVERSE: %u zeroes in matrix\n", diagcounter, zerocounter);
 	
 	
 	// REMOVE ZEROS
@@ -763,6 +824,9 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	printf("%u -> %u\n", pattern->nnz, counter);
 	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
 	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+	
+	
+	fprintf(stderr, "%u -> %u\t%u -> ^%.2lf%%\n\n", pattern->nnz, counter, gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
 	
 	
 // 		4.
@@ -798,7 +862,6 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		}
 	}
 	fclose(testres);
-	
 	
 	
 	free(diag); free(pattern); free(expanded_patt); 
@@ -1144,12 +1207,12 @@ void smoothmatLLt(mat_t *A){
 			for (j = 0; j < counter; j++){
 				
 				if (col[j] < (dim - 1)){
-					storevals[maxAsizemult*i + j] = (4.0*getvalue_mat(i, col[j], A) + 2.0*getvalue_mat(i, col[j] + 1, A));
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i, col[j] + 1, A));
 					storecols[maxAsizemult*i + j] = col[j];
 					storerows[i + 1]++;
 				}
 				else {
-					storevals[maxAsizemult*i + j] = 4.0*getvalue_mat(i, col[j], A);
+					storevals[maxAsizemult*i + j] = mainval*mainval*getvalue_mat(i, col[j], A);
 					storecols[maxAsizemult*i + j] = col[j];
 					storerows[i + 1]++;
 				}
@@ -1162,12 +1225,12 @@ void smoothmatLLt(mat_t *A){
 			for (j = 0; j < counter; j++){
 				
 				if (col[j] < (dim - 1)){
-					storevals[maxAsizemult*i + j] = (4.0*getvalue_mat(i, col[j], A) + 2.0*getvalue_mat(i, col[j] + 1, A) + 2.0*getvalue_mat(i + 1, col[j], A) + getvalue_mat(i + 1, col[j] + 1, A));
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i, col[j] + 1, A) + sideval*mainval*getvalue_mat(i + 1, col[j], A) + sideval*sideval*getvalue_mat(i + 1, col[j] + 1, A));
 					storecols[maxAsizemult*i + j] = col[j];
 					storerows[i + 1]++;
 				}
 				else {
-					storevals[maxAsizemult*i + j] = (4.0*getvalue_mat(i, col[j], A) + 2.0*getvalue_mat(i + 1, col[j], A));
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i + 1, col[j], A));
 					storecols[maxAsizemult*i + j] = col[j];
 					storerows[i + 1]++;
 				}
@@ -1214,8 +1277,7 @@ void smoothmatLLt(mat_t *A){
 		for (j = A->rows[i]; j < A->rows[i + 1]; j++){
 			if (A->cols[j] == i) A->values[j] = A->values[j];
 		}
-	}
-	
+	}	
 	
 	
 	printmat(A);
@@ -1242,7 +1304,119 @@ void smoothmatLLt(mat_t *A){
 
 
 
-
+void smoothTOmatLLt(mat_t *A, mat_t *Af){
+	
+	unsigned int dim = A->size;
+	
+	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
+	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
+	int *storerows = calloc(dim + 1, sizeof(int));
+	unsigned int pos = 0;
+	int i = 0, j = 0;
+	int counter = 0;
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++) storecols[i] = -10;
+	
+	#pragma omp parallel for private(j, counter)
+	for (i = 0; i < dim; i++){
+		
+		counter = 0;
+		
+		int *col = calloc(maxAsizemult, sizeof(int));
+		
+		counter = sumLLt(A, col, i);
+		
+		if (i == (dim - 1)){
+			
+			for (j = 0; j < counter; j++){
+				
+				if (col[j] < (dim - 1)){
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i, col[j] + 1, A));
+					storecols[maxAsizemult*i + j] = col[j];
+					storerows[i + 1]++;
+				}
+				else {
+					storevals[maxAsizemult*i + j] = mainval*mainval*getvalue_mat(i, col[j], A);
+					storecols[maxAsizemult*i + j] = col[j];
+					storerows[i + 1]++;
+				}
+				
+			}
+			
+		}
+		else{
+			
+			for (j = 0; j < counter; j++){
+				
+				if (col[j] < (dim - 1)){
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i, col[j] + 1, A) + sideval*mainval*getvalue_mat(i + 1, col[j], A) + sideval*sideval*getvalue_mat(i + 1, col[j] + 1, A));
+					storecols[maxAsizemult*i + j] = col[j];
+					storerows[i + 1]++;
+				}
+				else {
+					storevals[maxAsizemult*i + j] = (mainval*mainval*getvalue_mat(i, col[j], A) + sideval*mainval*getvalue_mat(i + 1, col[j], A));
+					storecols[maxAsizemult*i + j] = col[j];
+					storerows[i + 1]++;
+				}
+				
+			}
+			
+		}
+			
+		free(col);
+	}
+	
+	
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++){
+		if (storecols[i] > -1){
+			storecols[pos] = storecols[i];
+			storevals[pos] = storevals[i];
+			pos++;
+		}
+	}
+	for (i = 1; i < (dim + 1); i++) storerows[i] += storerows[i - 1];
+	
+	
+	
+	storecols = realloc(storecols, pos*sizeof(int));
+	storevals = realloc(storevals, pos*sizeof(double));
+	
+	
+	Af->values = calloc(pos, sizeof(double));
+	Af->cols = calloc(pos, sizeof(unsigned int));
+	Af->rows = calloc(dim + 1, sizeof(unsigned int));
+	Af->size = dim;
+	
+	for (i = 0; i < pos; i++){
+		Af->values[i] = storevals[i];
+		Af->cols[i] = (unsigned int) storecols[i];
+	}
+	
+	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (unsigned int) storerows[i];
+	
+	Af->nnz = pos;
+	
+	
+	printf("Checking for non-symmetric points\n\n");
+	for (i = 0; i < dim; i++){
+		for (j = Af->rows[i]; j < Af->rows[i + 1]; j++){
+			if (i >= Af->cols[j]){
+				if (fabs((getvalue_mat(i, Af->cols[j], Af) - getvalue_mat(Af->cols[j], i, Af))) > 1E-6){
+					printf("%i, %i\t", i, Af->cols[j]);
+					printf("%*.4lf ", (int) 8, (getvalue_mat(i, Af->cols[j], Af)));
+					printf("%*.4lf\n", (int) 8, (getvalue_mat(Af->cols[j], i, Af)));
+				}
+			}
+		}
+	}
+	printf("\nEnd\n\n");
+	
+	
+	
+	free(storecols); free(storerows); free(storevals);
+}
 
 
 
@@ -1309,6 +1483,7 @@ void smoothmatL(mat_t *A){
 	unsigned int pos = 0;
 	int i = 0, j = 0;
 	int counter = 0;
+	double zero = 1E-6;
 	
 	for (i = 0; i < maxAsizemult*A->nnz; i++) storecols[i] = -10;
 	
@@ -1325,7 +1500,7 @@ void smoothmatL(mat_t *A){
 			
 			for (j = 0; j < counter; j++){
 				
-				storevals[maxAsizemult*i + j] = getvalue_mat(i, col[j], A);
+				storevals[maxAsizemult*i + j] = mainval*getvalue_mat(i, col[j], A);
 				storecols[maxAsizemult*i + j] = col[j];
 				storerows[i + 1]++;
 
@@ -1336,7 +1511,7 @@ void smoothmatL(mat_t *A){
 			
 			for (j = 0; j < counter; j++){
 				
-				storevals[maxAsizemult*i + j] = (2.0*getvalue_mat(i, col[j], A) + 1.0*getvalue_mat(i + 1, col[j], A));
+				storevals[maxAsizemult*i + j] = (mainval*getvalue_mat(i, col[j], A) + sideval*getvalue_mat(i + 1, col[j], A));
 				storecols[maxAsizemult*i + j] = col[j];
 				storerows[i + 1]++;
 				
@@ -1378,6 +1553,15 @@ void smoothmatL(mat_t *A){
 	A->nnz = pos;
 	
 	
+	pos = 0;
+	for (i = 0; i < A->nnz; i++){
+		if (fabs(A->values[i]) < zero)
+			pos++;
+	}
+	
+	fprintf(stderr, "\n\nFiltered zeroes: %i\n\n", pos);
+	
+	
 	for (i = 0; i < dim; i++){
 		for (j = A->rows[i]; j < A->rows[i + 1]; j++){
 			if (A->cols[j] == i) A->values[j] = A->values[j];
@@ -1412,6 +1596,111 @@ void smoothmatL(mat_t *A){
 
 
 
+void smoothTOmatL(mat_t *A, mat_t *Af){
+	
+	unsigned int dim = A->size;
+	
+	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
+	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
+	int *storerows = calloc(dim + 1, sizeof(int));
+	unsigned int pos = 0;
+	int i = 0, j = 0;
+	int counter = 0;
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++) storecols[i] = -10;
+	
+	#pragma omp parallel for private(j, counter)
+	for (i = 0; i < dim; i++){
+		
+		counter = 0;
+		
+		int *col = calloc(maxAsizemult, sizeof(int));
+		
+		counter = sumL(A, col, i);
+		
+		if (i == (dim - 1)){
+			
+			for (j = 0; j < counter; j++){
+				
+				storevals[maxAsizemult*i + j] = mainval*getvalue_mat(i, col[j], A);
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+
+			}
+			
+		}
+		else{
+			
+			for (j = 0; j < counter; j++){
+				
+				storevals[maxAsizemult*i + j] = (mainval*getvalue_mat(i, col[j], A) + sideval*getvalue_mat(i + 1, col[j], A));
+				storecols[maxAsizemult*i + j] = col[j];
+				storerows[i + 1]++;
+				
+			}
+			
+		}
+			
+		free(col);
+	}
+	
+	
+	
+	for (i = 0; i < maxAsizemult*A->nnz; i++){
+		if (storecols[i] > -1){
+			storecols[pos] = storecols[i];
+			storevals[pos] = storevals[i];
+			pos++;
+		}
+	}
+	for (i = 1; i < (dim + 1); i++) storerows[i] += storerows[i - 1];
+	
+	
+	
+	storecols = realloc(storecols, pos*sizeof(int));
+	storevals = realloc(storevals, pos*sizeof(double));
+	
+	
+	Af->values = calloc(pos, sizeof(double));
+	Af->cols = calloc(pos, sizeof(unsigned int));
+	Af->rows = calloc(dim + 1, sizeof(unsigned int));
+	Af->size = dim;
+	
+	for (i = 0; i < pos; i++){
+		Af->values[i] = storevals[i];
+		Af->cols[i] = (unsigned int) storecols[i];
+	}
+	
+	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (unsigned int) storerows[i];
+	
+	Af->nnz = pos;
+	
+	
+	printf("Checking for non-symmetric points\n\n");
+	for (i = 0; i < dim; i++){
+		for (j = Af->rows[i]; j < Af->rows[i + 1]; j++){
+			if (i >= Af->cols[j]){
+				if (fabs((getvalue_mat(i, Af->cols[j], Af) - getvalue_mat(Af->cols[j], i, Af))) > 1E-6){
+					printf("%i, %i\t", i, Af->cols[j]);
+					printf("%*.4lf ", (int) 8, (getvalue_mat(i, Af->cols[j], Af)));
+					printf("%*.4lf\n", (int) 8, (getvalue_mat(Af->cols[j], i, Af)));
+				}
+			}
+		}
+	}
+	printf("\nEnd\n\n");
+	
+	
+	
+	free(storecols); free(storerows); free(storevals);
+}
+
+
+
+
+
+
 
 
 /* ------------------------- Array Filter -------------------------- */
@@ -1427,10 +1716,10 @@ void smootharrL(double *b, unsigned int dim){
 	for (i = 0; i < dim; i++){
 		
 		if (i == (dim - 1)){
-			storevals[i] = 2.0*b[i];
+			storevals[i] = mainval*b[i];
 		}
 		else{
-			storevals[i] = (2.0*b[i] + 1.0*b[i + 1]);
+			storevals[i] = (mainval*b[i] + sideval*b[i + 1]);
 		}
 			
 	}
@@ -1452,10 +1741,43 @@ void backsmootharrLt(double *b, unsigned int dim){
 	for (i = 0; i < dim; i++){
 		
 		if (i == 0){
-			storevals[i] = 2.0*b[i];
+			storevals[i] = mainval*b[i];
 		}
 		else{
-			storevals[i] = (2.0*b[i] + 1.0*b[i - 1]);
+			storevals[i] = (mainval*b[i] + sideval*b[i - 1]);
+		}
+			
+	}
+	
+	for (i = 0; i < dim; i++) b[i] = storevals[i];
+	
+	
+	free(storevals);
+}
+
+
+
+
+void backsmootharrLtV2(double *b, unsigned int dim, unsigned int *arrayindex){
+	
+	double *storevals = calloc(dim, sizeof(double));
+	
+	int i = 0;
+	
+	#pragma omp parallel for
+	for (i = 0; i < dim; i++){
+		
+		if (i == 0){
+			storevals[i] = mainval*b[i];
+		}
+		else{
+			
+			if ((arrayindex[i] - arrayindex[i - 1]) == 1){
+				storevals[i] = (mainval*b[i] + sideval*b[i - 1]);
+			}
+			else {
+				storevals[i] = mainval*b[i];
+			}
 		}
 			
 	}
@@ -1579,3 +1901,408 @@ void impLU(mat_t *A, unsigned int dim, double *b){
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
+	
+	int i = 0, j = 0, k = 0;
+	
+	pat_t *pattern = malloc(sizeof(pat_t));
+	pattern->rows = calloc((G->size + 1), sizeof(unsigned int));
+	
+	pat_t *expanded_patt = malloc(sizeof(pat_t));
+	expanded_patt->rows = calloc((G->size + 1), sizeof(unsigned int));
+	
+	mat_t *Af = malloc(sizeof(mat_t));
+	
+	if (rhs==1){
+		smoothTOmatL(mat, Af);
+	}
+	else if (rhs == 2){
+		smoothTOmatLLt(mat, Af);
+	}
+	else {
+		Af = mat;
+	}
+	
+	
+	printmat(mat);
+	printmat(Af);
+	
+	
+	// ---------------------------------------------------------------
+	
+	// PATTERNS
+	
+	switch ( patternmode ) {
+		case 1:
+			printf("PCG:\tLOWER TRIANGLE PATTERN\n\n");
+			ltp(mat, pattern, expanded_patt);
+			break;
+		case 2:
+			printf("PCG:\tFULL LOWER TRIANGLE\n\n");
+			flt(mat, pattern, expanded_patt);
+			break;
+		case 3:
+			printf("PCG:\tPOWER %u OF A\n\n", patternpower);
+			fprintf(stderr, "\tPOWER %u OF A\n", patternpower);
+			powerA(mat, pattern, expanded_patt, xfinal);
+			break;
+		case 4:
+			printf("PCG:\tADD PERCENTAGE -> %u\n\n", percentpattern);
+			perclt(mat, pattern, expanded_patt, xfinal);
+			break;
+		case 5:
+			printf("PCG:\tOPTIMIZED POWER %u OF A; SWEEPS: %i\n\n", patternpower, percentpattern);
+			fprintf(stderr, "\tOPTIMIZED POWER %u OF A; SWEEPS: %i\n", patternpower, percentpattern);
+			OptpowerA(mat, pattern, expanded_patt, xfinal);
+			break;
+		case 6:
+			printf("PCG:\tPATTERN OF AF\n\n");
+			fprintf(stderr, "\tPATTERN OF AF\n");
+			powerAf(Af, pattern, expanded_patt, xfinal);
+			break;
+		default:
+			printf("No pattern selected. Running default LOWER TRIANGLE PATTERN\n\n");
+			ltp(mat, pattern, expanded_patt);
+			break;
+	}
+	
+	G->nnz = expanded_patt->nnz;
+	G->values = calloc(G->nnz, sizeof(double));
+	G->cols = malloc(G->nnz * sizeof(unsigned int));
+	G->rows = malloc((G->size + 1) * sizeof(unsigned int));
+	
+	//	3.
+	//	Compute nonzero entries in G
+	// Init G
+	for (i = 0; i < G->nnz; i++){
+		G->cols[i] = expanded_patt->cols[i];
+	}
+	for (i = 0; i < G->size + 1; i++){
+		G->rows[i] = expanded_patt->rows[i];
+	}
+	
+	double totalresid = 0.0;							/* to reduce when parallelizing */
+	double *errorrow = calloc(mat->size, sizeof(double));
+	double *residrow = calloc(mat->size, sizeof(double));
+	double *errrow = calloc(mat->size, sizeof(double));
+	
+// 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
+	for (i = 0; i < mat->size; i++){					// For every row in the matrix
+		
+		unsigned int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
+		unsigned int *arrayindex = calloc(rowelems, sizeof(unsigned int));
+		int n = rowelems, nrhs = 1, lda = rowelems, ldb = rowelems, info;
+		int ipiv[rowelems];
+		double *a = malloc(rowelems*rowelems*sizeof(double));
+		double *a_res = malloc(rowelems*rowelems*sizeof(double));
+		double *b = calloc(rowelems, sizeof(double));
+		double *b_res = calloc(rowelems, sizeof(double));
+		double *r = malloc(rowelems*sizeof(double));
+		double *tmp = calloc(rowelems, sizeof(double));
+		double norm_r = 0.0;
+		
+		
+		for (j = expanded_patt->rows[i]; j < expanded_patt->rows[i + 1]; j++){
+			arrayindex[j - expanded_patt->rows[i]] = expanded_patt->cols[j];
+		}
+		
+		unsigned int poscount = 0;
+		
+		/****************************************************************/
+		
+		
+		
+		for (j = 0; j < rowelems; j++){					// Rows construct_mat
+			for (k = 0; k < rowelems; k++){				// Cols construct_mat
+				a[poscount] = getvalue_mat(arrayindex[j], arrayindex[k], Af);
+				a_res[poscount] = a[poscount];
+				poscount++;
+			}
+			b[j] = 0.0;
+			b_res[j] = 0.0;
+		}
+		b[rowelems - 1] = 1.0;
+		b_res[rowelems - 1] = 1.0;
+		
+		if (rhs != 0){
+			smootharrL(b, rowelems);
+			smootharrL(b_res, rowelems);
+		}
+		
+		if ((i >= 32200) && (i < 32201)){
+			printf("\n\n\t");
+			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
+			printf("\n\n");
+			
+			for (j = 0; j < rowelems; j++){					// Rows construct_mat
+				
+				printf("%i\t", arrayindex[j]);
+				for (k = 0; k < rowelems; k++){				// Cols construct_mat
+					printf("%.4lf\t", a[rowelems*j + k]);
+				}
+				printf("\n");
+			}
+		}
+		
+		
+		if ((i >= 32200) && (i < 32201)){
+			printf("\n\n\t");
+			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+			printf("\n");
+		}
+		
+		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
+		
+		if ((i >= 32200) && (i < 32201)){
+			printf("%i\t", i);
+			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
+			printf("\n\n");
+		}
+		
+		
+		if ((i >= 32200) && (i < 32201)){
+			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
+				printf("%i\t", mat->cols[j]);
+				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
+					printf("%i\t", mat->cols[k]);
+				}
+				printf("\n");
+			}
+			printf("\n\n");
+		}
+		
+		
+		
+		double norm_x = cblas_ddot(rowelems, b, 1, b, 1);
+		
+		for (j = 0; j < rowelems; j++){
+			for (k = 0; k < rowelems; k++){
+				tmp[j] += a_res[j*rowelems + k] * b[k]; 
+			}
+			r[j] = b_res[j] - tmp[j];
+			norm_r += r[j] * r[j];
+		}
+		
+		residrow[i] = sqrt(norm_r);
+		totalresid += sqrt(norm_r)/sqrt(norm_x);
+		
+		
+		if (rhs == 2){
+			backsmootharrLtV2(b, rowelems, arrayindex);
+		}
+		else {
+			
+		}
+		
+		for (j = 0; j < rowelems; j++){
+			G->values[expanded_patt->rows[i] + j] = b[j];
+		}
+		
+		free(b_res);
+		free(tmp);
+		free(a);
+		free(a_res);
+		free(b);
+		free(r);
+		free(arrayindex);
+		
+		
+	}
+	
+	
+	printf("\nINVERSE: Accumulated Residual: %.2e\n", totalresid);
+		
+		
+	double *diag;
+	unsigned int diagcounter = 0, zerocounter = 0;
+	diag = calloc(G->size, sizeof(double));
+	double zero = 1E-10;
+	
+
+	for (i = 0; i < G->size; i++){
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			if (G->cols[j] == i){diag[i] = sqrt(fabs(G->values[j]));}
+		}
+		if (fabs(diag[i]) < zero) {
+			diagcounter++;
+		}
+	}
+	
+	for (i = 0; i < G->size; i++){
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			G->values[j] = G->values[j]/diag[i];
+			if (fabs(G->values[j]) < zero) {
+				zerocounter++;
+			}
+		}
+	}
+	
+	printf("INVERSE: %u zeroes in diag\nINVERSE: %u zeroes in matrix\n", diagcounter, zerocounter);
+	
+	fprintf(stderr, "INVERSE: %u zeroes in diag\tINVERSE: %u zeroes in matrix\n", diagcounter, zerocounter);
+	
+	
+	// REMOVE ZEROS
+	
+	int counter = 0;
+	
+	mat_t *gnoz = malloc(sizeof(mat_t));
+	
+	gnoz->size = G->size;
+	gnoz->nnz = G->nnz - zerocounter - diagcounter;
+	gnoz->values = calloc(gnoz->nnz, sizeof(double));
+	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
+	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
+
+	
+	for (i = 0; i < G->size; i++){
+		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
+			if (fabs(G->values[j]) > zero) {
+				gnoz->values[counter] = G->values[j];
+				gnoz->cols[counter] = G->cols[j];
+				counter++;
+			}
+		}
+		gnoz->rows[i + 1] = counter;
+	}
+
+	printf("%u -> %u\n", pattern->nnz, counter);
+	printf("%u -> %u\n", pattern->nnz, expanded_patt->nnz);
+	printf("%u -> ^%.2lf%%\n\n", gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+	
+	
+	fprintf(stderr, "%u -> %u\t%u -> ^%.2lf%%\n\n", pattern->nnz, counter, gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
+	
+	
+// 		4.
+// 		Drop small entries in G and rescale
+	
+	
+	
+	G->nnz = gnoz->nnz;
+	G->values = gnoz->values;
+	G->cols = gnoz->cols;
+	G->rows = gnoz->rows;
+	
+	
+	
+	
+	
+	
+	// OTHER STUFF
+	
+	char buf_res[256];
+	snprintf(buf_res, sizeof buf_res, "../Outputs/cg/DataCG/addedelems/res_%s_%i_%i.mtx", matname, percentpattern, patternpower);
+	FILE *testres= fopen(buf_res, "w");
+	double sum = 0.0;
+	int pos = 0;
+	double avg = 0.0;
+	for(i = 0; i < mat->size; i++){
+		sum += residrow[i];
+		if ((i%1000 == 0) && (i > 0)){
+			avg = sum;
+			fprintf(testres, "%i %.20lf\n", pos, avg);
+			pos++;
+			sum = 0.0;
+		}
+	}
+	fclose(testres);
+	
+	
+	
+	free(diag); free(pattern); free(expanded_patt); 
+	free(errorrow); free(residrow); free(errrow);
+}

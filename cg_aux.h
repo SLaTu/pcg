@@ -22,6 +22,7 @@ void printmat(mat_t *A);
 void printarr(double *arr, unsigned int dim);
 void reperror(mat_t *A, double *r, double *b, unsigned int i);
 void precond(mat_t *mat, mat_t *G, double *xfinal);
+void precond_vf(mat_t *mat, mat_t *G, double *xfinal);
 double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error);
 void transpose(mat_t *G, mat_t *Gtransp);
 void transposeCSC(mat_t *G, mat_t *Gtransp);
@@ -34,12 +35,16 @@ void smootharr(double *b, unsigned int dim);
 int sumupdown(mat_t *A, int *col, int ract);
 
 void smoothmatLLt(mat_t *A);
+void smoothTOmatLLt(mat_t *A, mat_t *Af);
 int sumLLt(mat_t *A, int *col, int ract);
 void smoothmatL(mat_t *A);
+void smoothTOmatL(mat_t *A, mat_t *Af);
 int sumL(mat_t *A, int *col, int ract);
 void smootharrL(double *b, unsigned int dim);
 void solveLU(mat_t *A, unsigned int dim, double *b);
 void impLU(mat_t *A, unsigned int dim, double *b);
 void backsmootharrLt(double *b, unsigned int dim);
+
+void backsmootharrLtV2(double *b, unsigned int dim, unsigned int *arrayindex);
 
 #endif // __CG_AUX_H__

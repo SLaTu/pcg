@@ -37,6 +37,7 @@ int main(int argc, char *argv[]){
 	mat_t *A;
 	A = malloc(sizeof(mat_t));
 	
+	
 	if (cg_config(argc, argv)){
 		return 1;
 	}
@@ -47,27 +48,52 @@ int main(int argc, char *argv[]){
 	double *x = calloc(A->size, sizeof(double));
 	double *initx = malloc(A->size*sizeof(double));
 	double *initb = malloc(A->size*sizeof(double));
+	unsigned int dim = A->size;
 	
 	fprintf(stdout, "RHS:\t%i\n", rhs);
 	
-	if (rhs == 1){
-		readrhs(b, argv[1], A->size);
-	}
-	else {
+	
+	
+	
+	
+// 	if (rhs == 1){
+// 		readrhs(b, argv[1], A->size);
+// 	}
+// 	else {
 		for (j = 0; j < A->size; j++) {
-			x[j] = 0.0; //sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180);
+			x[j] = sin(((double) j) * PI/180000) + sin(((double) j) * PI/18000) + sin(((double) j) * PI/1800) + sin(((double) j) * PI/180);
 			initx[j] = x[j];
 		}
-		x[A->size - 1] = 1.0;
-		initx[A->size - 1] = 1.0;
+// 		x[A->size - 1] = 1.0;
+// 		initx[A->size - 1] = 1.0;
 		pmultMatVect(b, x, A);
 		for (j = 0; j < A->size; j++) {
 			initb[j] = b[j];
 			x[j] = 0.0; 
 		}
-	}
+// 	}
 	
 	
+	printf("Init X\n");
+	printarr(initx, dim);
+	
+	printf("B\n");
+	printarr(b, dim);
+	
+	
+// if (rhs==1){
+// 	printmat(A);
+// 	smoothmatLLt(A);
+// 	fprintf(stderr, "FILTERED -> NNZ: %i\tLT: %i\n\n", A->nnz, (A->nnz - A->size)/2 + A->size);
+// 	
+// 	smootharrL(b, dim);
+// 	
+// 	printf("Smooth B\n");
+// 	printarr(b, dim);
+// }
+// else {
+// 	fprintf(stderr, "NOT FILTERED\n\n");
+// }
 	
 	// %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
@@ -87,7 +113,6 @@ int main(int argc, char *argv[]){
 	
 	
 	
-	
 	switch ( mode ) {
 		case 1: 
 			printf("Mode:\tBase CG\n");
@@ -95,10 +120,12 @@ int main(int argc, char *argv[]){
 			break;
 		case 2:
 			printf("Mode:\tD⁻1 Preconditioned CG\n");
+			fprintf(stderr, "Mode:\tD⁻1 Preconditioned CG");
 			x = cg_precond_diag(A, x, b, argv[1]);
 			break;
 		case 3: 
 			printf("Mode:\tPCG\n");
+			fprintf(stderr, "Mode:\tPCG");
 			x = cg_precond(A, x, b, argv[1], initx);
 			break;
 		case 4: 
@@ -111,11 +138,18 @@ int main(int argc, char *argv[]){
 	}
 	
 	
+// if (rhs==1){
+// 	backsmootharrLt(x, dim);
+// 	
+// 	printf("Final X\n");
+// 	printarr(x, dim);
+// }
 	
-	fclose(outmn);
-	free(A);
-	free(b);
-	free(x);
+	
+// 	fclose(outmn);
+// 	free(A);
+// 	free(b);
+// 	free(x);
 	return 0;
 }
 
@@ -323,6 +357,7 @@ double *cg_precond_diag(mat_t *A, double *x, double *b, char *argv){
 			end_usec = 0.0;
 			for (int j = 0; j < i; j++) end_usec += elapses[j];
 			fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
+			fprintf(stderr, "Precision reached; Iter: %i; Error: %.2e; Total time: %lf\n\n", i, residuals[i], end_usec);
 			break;
 		}
 	}
@@ -424,12 +459,19 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 	
 	
 	start_usec = omp_get_wtime();											/* PRECONDITIONER + TRANSPOSED */
+	
+	
+	
+	
+	
 	precond(A, G, r);
+// 	precond_vf(A, G, r);
+	
+	
+	
+	
 	end_usec = omp_get_wtime();
 	printf("\nPreconditioning Time: %lf\n", end_usec - start_usec);
-	
-	
-// 	filterG(G, A, A->size, r);
 	
 	
 	transposeCSC(G, Gtransp);
@@ -439,7 +481,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 	
 	char buf_p[256];
 	snprintf(buf_p, sizeof buf_p, "../Outputs/cg/DataCG/patterns/pattern_%s_%i_%i.mtx", argv, percentpattern, patternpower);
-	print_pattern(buf_p, G);
+	print_pattern(buf_p, G, G->size/10);
 	
 	
 	mat_t *GtranspCOO = malloc(sizeof(mat_t));
@@ -607,24 +649,9 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 // 				end_usec = 0.0;
 // 				for (int j = 0; j < i; j++) end_usec += elapses[j];
 				fprintf(stdout, "Precision reached; Iter: %i; Error: %.2e\n\n", i, residuals[i]);
+				fprintf(stderr, "Precision reached; Iter: %i; Error: %.2e\n\n", i, residuals[i]);
 				printf("RESULTING X\n\n");
-				for (int j = 0; j < 5; j++){
-					printf("%.4lf\t", x[j]);
-				}
-				printf("\n");
-				
-				if (A->size > 10){
-				for (int j = A->size/2; j < A->size/2 + 5; j++){
-					printf("%.4lf\t", x[j]);
-				}
-				printf("\n");
-				}
-				
-				
-				for (int j = A->size - 5; j < A->size; j++){
-					printf("%.4lf\t", x[j]);
-				}
-				printf("\n\n");
+				printarr(x, A->size);
 				break;
 			}
 		}
@@ -675,7 +702,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 		
 		
 		if (m >= 0) {
-			snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i.log", argv, percentpattern, patternpower, m);
+			snprintf(buf_t, sizeof buf_t, "../Outputs/cg/DataCG/logs/pcg_%s_%i_%i_%i_%i.log", argv, percentpattern, patternpower, m, rhs);
 			dump_info(buf_t, i, residuals, elapses, dnew);
 		}
 	}
@@ -710,7 +737,7 @@ double *cg_precond(mat_t *A, double *x, double *b, char *argv, double *initx){
 	
 	
 	char buffig[256];
-	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%i", matname, patternpower);
+	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%i_%i", matname, patternpower, rhs);
 	
 	
 	FILE *outmnfig = fopen(buffig, "a");

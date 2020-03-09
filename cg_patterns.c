@@ -20,6 +20,157 @@ int comp (const void *a, const void *b){
 	int *y = (int *) b;
 	return *x - *y;
 }
+
+
+
+
+
+void pexpandpattern(unsigned int dim, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
+	
+	int i = 0, j = 0, k = 0, l = 0;
+	int *poolcols = malloc(cachesize*pattern->nnz*sizeof(int));
+	int *poolrows = calloc((dim + 1), sizeof(unsigned int));
+	int numrowelems = 0;
+	int cachecol = 0;
+	int cacheline = 0;
+	int cacheadded = 0;
+	int cacheelements = 0;
+	int tmpcol = 0;
+	int calc = 0;
+	int maxcacheelements = 0;
+	int initk = 0;
+	int addedelements = 0;
+	int addedrow = 0;
+	int nthreads = omp_get_max_threads(); 
+	int isincacheline = 0;
+	
+	double maxtmp = (((double) pattern->nnz) * ((double) percentpattern)) / 100.0;
+	
+	int maxaddedelements = floor(maxtmp / nthreads);
+	
+	
+	
+	#pragma omp parallel for
+	for (i = 0; i < cachesize*pattern->nnz; i++) poolcols[i] = -1;
+	
+	
+	
+	#pragma omp parallel private(j, numrowelems, cachecol, cacheline, cacheadded, cacheelements, k, tmpcol, l, calc, maxcacheelements, initk, addedelements, addedrow, isincacheline)
+	{
+		calc = 0;
+		addedelements = 0;
+		
+		#pragma omp for
+		for (i = 0; i < dim; i++){
+			
+			addedrow = 0;
+			numrowelems = pattern->rows[i];
+			
+			for(j = pattern->rows[i]; j < pattern->rows[i + 1]; j++){
+				
+				cachecol = pattern->cols[j];
+				cacheline = (int) (((long long) &xfinal[pattern->cols[j]]%64)/8);
+				cacheadded = 0;
+				cacheelements = 0;
+				
+				
+				for (k = cacheline; k < cachesize; k++){
+					tmpcol = cachecol + k;
+					
+					for (l = j; l < pattern->rows[i + 1]; l++){
+						if (tmpcol == pattern->cols[l]) cacheelements++;
+						if ((pattern->cols[l] - cachecol) >= cachesize) break;
+					}
+				}
+				
+				
+				
+				calc += cacheelements * ((int) percentpattern); // si > 75 -> 1, si > 175 -> 2
+				maxcacheelements = 0;
+				
+				while (calc > 66){
+					calc -= 100;
+					maxcacheelements++;
+				}
+				
+				//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+				
+				initk = cacheline - maxcacheelements;
+				if (initk < 0) initk = 0;
+				
+				
+				
+				
+				for (k = initk; k < cachesize; k++){
+					
+					isincacheline = 0;
+					tmpcol = cachecol - cacheline + k;
+					
+					for (l = j; l < pattern->rows[i + 1]; l++){
+						if ((int) pattern->cols[l] == tmpcol){
+							isincacheline = 1;
+							break;
+						}
+					}
+					
+					if ((tmpcol >= 0) && (tmpcol <= i) && (isincacheline == 0) && (addedelements < maxaddedelements) && (cacheadded < maxcacheelements)){
+						
+						
+						poolcols[numrowelems*cachesize + (j - numrowelems)*cachesize + k] = tmpcol;
+						poolrows[i + 1]++;
+						addedelements++;
+						cacheadded++;
+						addedrow++;
+						
+					}
+					else if ((tmpcol >= 0) && (tmpcol <= i) && (isincacheline == 1)){
+						
+						
+						poolcols[numrowelems*cachesize + (j - numrowelems)*cachesize + k] = tmpcol;
+						poolrows[i + 1]++;
+						if (tmpcol != cachecol) j++;
+						
+					}
+					else{}
+				}
+				
+				
+				calc += (maxcacheelements - cacheadded) * 100;
+				
+			}
+			
+		}
+	}
+	
+	for (i = 1; i < dim + 1; i++){poolrows[i] += poolrows[i - 1];}
+	#pragma omp parallel for
+	for (i = 0; i < dim + 1; i++){expanded_patt->rows[i] = (unsigned int) poolrows[i];}
+	
+	
+	expanded_patt->nnz = expanded_patt->rows[dim];
+	expanded_patt->cols = calloc(expanded_patt->nnz, sizeof(unsigned int));
+	
+	
+	
+	int count = 0;
+	for (i = 0; i < cachesize*pattern->nnz; i++){
+		if (poolcols[i] >= 0){
+			expanded_patt->cols[count] = (unsigned int) poolcols[i];
+			count++;
+		}
+	}
+	
+	
+	printf("\n\n%u -> ^%.2lf%%\n\n", expanded_patt->nnz, 100 * (((double) expanded_patt->nnz - (double) pattern->nnz)/ ((double) pattern->nnz)));
+	
+	
+	free(poolcols); free(poolrows);
+	
+}
+	
+	
+	
+	
 	
 	
 	
@@ -395,12 +546,162 @@ void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 		}
 	}
 	
-	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	pexpandpattern(mat->size, pattern, expanded_patt, xfinal);
 	
 }
 
 
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
+
+	unsigned int i = 0, j = 0, k = 0, l = 0;
+	unsigned int counter = 0;
+	unsigned int patterncount = 0;
+	unsigned int elements = 0;
+	unsigned int dim = mat->size;
+
+	
+	pat_t *apower;
+	apower = malloc(sizeof(mat_t));
+	apower->rows = calloc((dim + 1), sizeof(unsigned int));
+	apower->cols = calloc((20 * patternpower * mat->nnz), sizeof(unsigned int));
+	
+	pat_t *apowertemp;
+	apowertemp = malloc(sizeof(mat_t));
+	apowertemp->rows = calloc((dim + 1), sizeof(unsigned int));
+	apowertemp->cols = calloc((20 * patternpower * mat->nnz), sizeof(unsigned int));
+	
+	unsigned int *pospower = calloc(dim, sizeof(unsigned int));
+	unsigned int *poscol = calloc(dim, sizeof(unsigned int));
+	
+	//%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	apower->nnz = mat->nnz;
+	
+	for (i = 0; i < apower->nnz; i++) {
+		apower->cols[i] = mat->cols[i];
+	}
+	
+	for (i = 0; i < (dim + 1); i++) {
+		apower->rows[i] = mat->rows[i];
+	}
+	
+	/* POWER A to the patternpower */
+	
+	double start_usec = 0.0, end_usec = 0.0;
+	double tsort = 0.0, tfor = 0.0, tend = 0.0;
+	double ttotal = 0.0;
+	
+	ttotal = omp_get_wtime();
+	for (int power = 1; power < patternpower; power++){
+		for (j = 0; j < dim; j++){
+			start_usec = omp_get_wtime();
+			for (k = apower->rows[j]; k < apower->rows[j + 1]; k++){
+				for (l = apower->rows[apower->cols[k]]; l < apower->rows[apower->cols[k] + 1]; l++){
+					if (pospower[apower->cols[l]] == 1){
+						continue;
+					}
+					else {
+						pospower[apower->cols[l]] = 1;
+						poscol[elements] = apower->cols[l];
+						elements++;
+					}
+				}
+			}
+			end_usec = omp_get_wtime();
+			tfor += end_usec - start_usec; 
+			
+			start_usec = omp_get_wtime();
+			qsort(poscol, elements, sizeof(unsigned int), comp);
+			end_usec = omp_get_wtime();
+			tsort += end_usec - start_usec; 
+			
+			start_usec = omp_get_wtime();
+			// Addelements to array
+			for (i = 0; i < elements; i++){
+				apowertemp->cols[counter] = poscol[i];
+				counter++;
+			}
+			apowertemp->rows[j + 1] = counter;
+			
+			for (i = 0; i < elements; i++){
+				pospower[poscol[i]] = 0;
+				poscol[i] = 0;
+			}
+			
+			end_usec = omp_get_wtime();
+			tend += end_usec - start_usec; 
+			elements = 0;
+		}
+		
+		apowertemp->nnz = counter;
+		counter = 0;
+		for (j = 0; j < apowertemp->nnz; j++) {
+			apower->cols[j] = apowertemp->cols[j];
+		}
+		for (j = 0; j < (dim + 1); j++) {
+			apower->rows[j] = apowertemp->rows[j];
+		}
+		apower->nnz = apowertemp->nnz;
+	}
+	
+	ttotal = omp_get_wtime() - ttotal;
+	
+	printf("For Time: %lf\tSorting Time: %lf\tEnd Time: %lf\tTotal Time: %lf", tfor, tsort, tend, ttotal);
+	
+	elements = 0;
+	counter = 0;
+	
+	/* GET PATTERN OF POWERED A */
+	
+	for (i = 0; i < dim; i++){	// First get initial pattern
+		for (j = apower->rows[i]; j < apower->rows[i + 1]; j++){
+			if (apower->cols[j] <= i){patterncount++;}
+		}
+		pattern->rows[i + 1] = patterncount;
+	}
+
+	pattern->nnz = patterncount;
+	pattern->cols = malloc(pattern->nnz*sizeof(unsigned int));
+
+	for (i = 0; i < dim; i++){
+		for (j = apower->rows[i]; j < apower->rows[i + 1]; j++){
+			if (apower->cols[j] <= i){
+				pattern->cols[counter] = apower->cols[j];
+				counter++;
+			}
+		}
+	}
+	
+	free(apower->cols);
+	free(apower->rows);
+	free(apower);
+	free(apowertemp->cols);
+	free(apowertemp->rows);
+	free(apowertemp);
+	free(pospower);
+	free(poscol);
+	
+	
+	
+	
+// 	optexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
+	
+	
+	double t1 = omp_get_wtime();
+	pexpandpattern(mat->size, pattern, expanded_patt, xfinal);
+	double t2 = omp_get_wtime();
+	
+	printf("TIME EXPAND PATTERN: %lf\n", t2 - t1);
+	
+	
+// 	limitexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
+	
+}
+
+
+
+
+void powerAf(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 
 	unsigned int i = 0, j = 0, k = 0, l = 0;
 	unsigned int counter = 0;
@@ -535,12 +836,11 @@ void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal){
 	
 // 	optexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
 	
-	expandpattern(mat->size, pattern, expanded_patt, xfinal);
+	pexpandpattern(mat->size, pattern, expanded_patt, xfinal);
 	
 // 	limitexpandpattern(mat->size, pattern, expanded_patt, xfinal, mat);
 	
 }
-
 
 
 
@@ -840,3 +1140,10 @@ void poweredA(mat_t *mat, unsigned int dim){
 	free(poscol);
 	
 }
+
+
+
+
+
+
+
