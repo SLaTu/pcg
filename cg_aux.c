@@ -1,4 +1,3 @@
-
 #include "cg_aux.h"
 #define cachesize 8
 #define widthprint 8
@@ -11,13 +10,32 @@ extern int rhs;
 extern int mode;
 extern int imax;
 extern double err;
-extern unsigned int bsize; 
+extern int bsize; 
 extern FILE *fp;
-extern unsigned int patternmode;
-extern unsigned int percentpattern;
-extern unsigned int patternpower;
-extern unsigned int reps;
+extern int patternmode;
+extern int percentpattern;
+extern int patternpower;
+extern int reps;
 extern mat_t *powmat;
+
+
+/* 		Function name: cg_config
+ * 		Purpose: Read input arguments and set adequate variables.
+ * 
+ * 		Inputs: Execution arguments
+ * 
+ * 		Outputs:
+ * 			- 0 on success
+ * 			- 1 on failure
+ * 
+ * 		TODO:
+ *
+ * 		- Rearrange inputs
+ * 		- Maybe rethink how to run code
+ * 		- Adapt to filtered matrices
+ * 
+ * 		Others: 
+ */
 
 int cg_config(int argc, char *argv[]) {
 
@@ -43,7 +61,6 @@ int cg_config(int argc, char *argv[]) {
 			fprintf(stderr, "\nError: Add percentage of elements to add with PCG 4 (e.g.: 100).\n\n");
 			return 1;
 		}
-		
 		
 		if ((patternmode == 3) && (argc >= 10)) {
 			percentpattern = atoi(argv[8]);
@@ -78,7 +95,6 @@ int cg_config(int argc, char *argv[]) {
 	
 	if (mode != 3) {patternmode = 0; percentpattern = 0; patternpower = 0;}
 	
-	
 	printf("\n---------------------------------------------------------\n");
 	fprintf(stderr, "---------------------------------------------------------\n\n");
 	printf("\nMatrix:\t%s\n", matname);
@@ -86,17 +102,36 @@ int cg_config(int argc, char *argv[]) {
 	printf("Imax:\t%d\n", imax);
 	printf("Error:\t%.2e\n", err);
 	printf("\n---------------------------------------------------------\n\n");
+	
 	return 0;
 }
-	
-	
+
+
+
+/* 		Function name: cg_setup
+ * 		Purpose: Read matrix file and store data to a matrix type
+ * 
+ * 		Inputs: Matrix name, Pointer to matrix (mat_t)
+ * 
+ * 		Outputs:
+ * 			- 0 on success
+ * 			- 1 on failure
+ * 
+ * 		TODO:
+ *
+ * 		- Adapt to matrices with swapped rows and cols.
+ * 		- Optimize code
+ * 
+ * 		Others: 
+ */
+
 int cg_setup(char* matname, mat_t *mat){
 	
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
-	unsigned int j = 0, i = 0;
-	unsigned int rowvalue = 0, cmp = 0, acum = 0, position = 0, count = 0;
+	int j = 0, i = 0;
+	int rowvalue = 0, cmp = 0, acum = 0, position = 0, count = 0;
 	double num = 0;
 	char buff[256];
 	
@@ -114,18 +149,18 @@ int cg_setup(char* matname, mat_t *mat){
 // 		while(fscanf(fp, "%lf", &num) == 1){
 // 			
 // 			if (count == 0){
-// 				mat->size = (unsigned int) num;
+// 				mat->size = (int) num;
 // 			}
 // 			else if (count == 1){}
 // 			else if (count == 2){
-// 				mat->nnz = (unsigned int) num;
+// 				mat->nnz = (int) num;
 // 				mat->values = malloc(mat->nnz*sizeof(double));
-// 				mat->cols = malloc(mat->nnz*sizeof(unsigned int));
-// 				mat->rows = malloc((mat->size + 1) * sizeof(unsigned int));
+// 				mat->cols = malloc(mat->nnz*sizeof(int));
+// 				mat->rows = malloc((mat->size + 1) * sizeof(int));
 // 				mat->rows[0] = 0;
 // 			}
 // 			else if (count == 4){
-// 				mat->cols[((i - 1)/3) - 1] = (unsigned int) num - 1;
+// 				mat->cols[((i - 1)/3) - 1] = (int) num - 1;
 // 			}
 // 			else if (count == 3){
 // 				rowvalue = num - 1;
@@ -157,18 +192,18 @@ int cg_setup(char* matname, mat_t *mat){
 		while(fscanf(fp, "%lf", &num) == 1){
 
 			if (count == 0){
-				mat->size = (unsigned int) num;
+				mat->size = (int) num;
 			}
 			else if (count == 1){}
 			else if (count == 2){
-				mat->nnz = (unsigned int) num;
+				mat->nnz = (int) num;
 				mat->values = malloc(mat->nnz*sizeof(double));
-				mat->cols = malloc(mat->nnz*sizeof(unsigned int));
-				mat->rows = malloc((mat->size + 1) * sizeof(unsigned int));
+				mat->cols = malloc(mat->nnz*sizeof(int));
+				mat->rows = malloc((mat->size + 1) * sizeof(int));
 				mat->rows[0] = 0;
 			}
 			else if (count == 3){
-				mat->cols[i/3 - 1] = (unsigned int) num - 1;
+				mat->cols[i/3 - 1] = (int) num - 1;
 			}
 			else if (count == 4){
 				rowvalue = num - 1;
@@ -207,15 +242,35 @@ int cg_setup(char* matname, mat_t *mat){
 }
 
 
-int readrhs(double *b, char* matname, unsigned int size){
+
+/* 		Function name: readrhs
+ * 		Purpose: Reads a RHS if provided
+ * 
+ * 		Inputs: Pointer to array, Matrix name, Matrix size
+ * 
+ * 		Outputs:
+ * 			- 0 on success
+ * 			- 1 on failure
+ * 
+ * 		TODO:
+ *
+ * 		- Adapt to reading a specific file
+ * 		- Optimize code
+ * 
+ * 		Others: 
+ * 
+ * 		- Reads only files called RHS_matname
+ */
+
+int readrhs(double *b, char* matname, int size){
 	
 	char *line = NULL;
 	size_t len = 0;
 	ssize_t read;
-	unsigned int index = 0;
+	int index = 0;
 	double num = 0;
 	char buff[256];
-	unsigned int count = 0;
+	int count = 0;
 	
 	snprintf(buff, sizeof buff, "../Inputs/RHS/RHS_%s", matname);
 	fp = fopen (buff, "r");
@@ -228,12 +283,12 @@ int readrhs(double *b, char* matname, unsigned int size){
 		num = 0;
 		while(fscanf(fp, "%lf", &num) == 1){
 			if (count == 0){
-				if ((unsigned int) num == size) {printf("\nOK\n");}
+				if ((int) num == size) {printf("\nOK\n");}
 				else {return 1;}
 			}
 			else if (count == 1){}
 			else if (count == 2){
-				index = (unsigned int) num;
+				index = (int) num;
 			}
 			else if (count == 3){
 				b[index - 1] = (double) num;
@@ -252,30 +307,115 @@ int readrhs(double *b, char* matname, unsigned int size){
 }
 
 
-void report(mat_t *A, double *r, double *b, unsigned int i, double start_usec, double end_usec){
+/* 		Function name: printfigdatax
+ * 		Purpose: Prints files with Data and output X
+ * 
+ * 		Inputs: Matrix name, X, Initial X, all measurement variables
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 		Others: 
+ */
+
+void printfigdatax(char *matname, int patternpower, int rhs, mat_t *G, mat_t *A, int percentpattern, int bniter, double btottime, double btimeiter, double btimemult, double btimetransp, long long bdcmnorm, long long bxdcmnorm, long long bdifmult, long long bdcmtransp, long long bxdcmtransp, long long bdiftransp, int brep, double *x, double *initx){
 	
-	unsigned int j = 0;
-	double norm_b = 0.0;
-	double norm_r = 0.0;
-	
-	if (i == 0) {printf("Something bad happened. Probably related to patterns.\n");}
-	else {
-		for (j = 0; j < A->size; j++) norm_r += (r[j]*r[j]);
-		norm_r = sqrt(norm_r);
-		
-		for (j = 0; j < A->size; j++) norm_b += (b[j]*b[j]);
-		
-		if (i == imax) {printf("\nSolution wouldn't converge.\n"); printf("Error:\t%.2e\n", norm_r / norm_b);}
-		else {printf("\nSolution converged in %u iteration/s.\n" , i); printf("Error:\t%.2e\n", norm_r / norm_b);}
+	char buffig[256];
+	snprintf(buffig, sizeof buffig, "../Outputs/cg/DataCG/Fig_DATA_%s_%i_%i", matname, patternpower, rhs);
+	FILE *outmnfig = fopen(buffig, "a");
+	if (outmnfig == NULL){
+		printf("Could not open writing file.");
 	}
 	
-	printf("Total Time:\t%.4lf s\tIteration Time:\t%.4lf s\n\n", end_usec - start_usec, (end_usec - start_usec) / ((double) i));
+	fprintf(outmnfig, "%.2lf\t", 100.0 * ((double) G->nnz) / (double) (((A->nnz - A->size)/2) + A->size) - 100.0);
+	fprintf(outmnfig, "%u\t", percentpattern);
+	fprintf(outmnfig, "%u\t", G->nnz);
+	
+	fprintf(outmnfig, "%i\t", bniter);
+	fprintf(outmnfig, "%lf\t", btottime);
+	fprintf(outmnfig, "%lf\t", btimeiter);
+	fprintf(outmnfig, "%lf\t", btimemult);
+	fprintf(outmnfig, "%lf\t", btimetransp);
+	fprintf(outmnfig, "%lli\t", bdcmnorm);
+	fprintf(outmnfig, "%lli\t", bxdcmnorm);
+	fprintf(outmnfig, "%lli\t", bdifmult);
+	fprintf(outmnfig, "%lli\t", bdcmtransp);
+	fprintf(outmnfig, "%lli\t", bxdcmtransp);
+	fprintf(outmnfig, "%lli\t", bdiftransp);
+	
+	fprintf(outmnfig, "%i\t", A->nnz);
+	fprintf(outmnfig, "%i\t", A->size);
+	fprintf(outmnfig, "%i\n", brep);
+	
+	fclose(outmnfig);
+	
+	
+	char buf_x[256];
+	snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x_%s.log", matname);
+	FILE *logt = fopen(buf_x, "w");
+	for ( int i = 0; i < A->size; i++ ) {
+		fprintf(logt, "%i\t%.8e\t%.8e\n", i, x[i], initx[i]);
+	}
+	fclose(logt);
 }
 
 
+
+/* 		Function name: checkbesttime
+ * 		Purpose: Compares best time with repetition time. Updates best time and measurements of best time
+ * 
+ * 		Inputs: Measurement variables, best time
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- POINTERS!!
+ * 
+ * 		Others: 
+ * 
+ * 			- Not available
+ */
+
+void checkbesttime(double end_usec, double start_usec, double tmin, int bniter, int i, double btottime, double btimeiter, double btimemult, double btimetransp, long long bdcmnorm, long long bxdcmnorm, long long bdifmult, long long bdcmtransp, long long bxdcmtransp, long long bdiftransp, int brep, int m, double tmult, double ttransp, long long dcmnorm, long long xdcmnorm, long long dcmtransp, long long xdcmtransp){
+	
+	if ((end_usec - start_usec) < tmin){
+		tmin = end_usec - start_usec;
+		bniter = i;
+		btottime = end_usec - start_usec;
+		btimeiter = tmin / (double) bniter;
+		btimemult = tmult / (double) bniter;
+		btimetransp = ttransp / (double) bniter;
+		bdcmnorm = dcmnorm;
+		bxdcmnorm = xdcmnorm;
+		bdifmult = dcmnorm - xdcmnorm;
+		bdcmtransp = dcmtransp;
+		bxdcmtransp = xdcmtransp;
+		bdiftransp = dcmtransp - xdcmtransp;
+		brep = m;
+	}
+}
+
+
+/* 		Function name: printmat
+ * 		Purpose: Prints in stdout a given matrix. If too large prints only 1o first initial rows and cols
+ * 
+ * 		Inputs: Matrix pointer
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 		Others: 
+ */
+
 void printmat(mat_t *A){
 
-	unsigned int lim = A->size;
+	int lim = A->size;
 	int place = 0;
 	
 	if (lim < 10){
@@ -334,7 +474,21 @@ void printmat(mat_t *A){
 }
 
 
-void printarr(double *arr, unsigned int dim){
+
+/* 		Function name: printarr
+ * 		Purpose: Prints a given array. If too large prints 3 small sections
+ * 
+ * 		Inputs: Array pointer
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 		Others: 
+ */
+
+void printarr(double *arr, int dim){
 	
 	
 	if (dim > 10){
@@ -363,40 +517,123 @@ void printarr(double *arr, unsigned int dim){
 }
 
 
-void reperror(mat_t *A, double *r, double *b, unsigned int i){
-	
-	double berror = 0.0;
-	double error = 0.0;
-	unsigned int j = 0;
-	for (j = 0; j < A->size; j++) error += (r[j]*r[j]);
-	error = sqrt(error);
-	for (j = 0; j < A->size; j++) berror += (b[j]*b[j]);
-	berror = sqrt(berror);
-	printf("Iter: %d;\tError: %.2e\n", i, error / berror);
-	
+
+/* 		Function name: papiinit
+ * 		Purpose: Initialize papi functions
+ * 
+ * 		Inputs: retval, EventSet
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ *
+ * 		- IFDEF or move to .h
+ * 
+ * 		Others: 
+ */
+
+void papiinit(int retval, int EventSet){
+	retval = PAPI_library_init(PAPI_VER_CURRENT);
+	if (retval != PAPI_VER_CURRENT){
+		fprintf(stderr, "PAPI library init error!\n");
+		exit(1);
+		
+	}
+	if (PAPI_thread_init((long unsigned int (*)(void)) omp_get_thread_num) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	if (PAPI_create_eventset(&EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	if (PAPI_add_event(EventSet, PAPI_L1_DCM) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	if (PAPI_start(EventSet) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
 }
 
 
 
+/* 		Function name: papiend
+ * 		Purpose: Stops papi
+ * 
+ * 		Inputs: EventSet, Pointer to array
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
+ */
+
+void papiend(int EventSet, long_long *values){
+	if (PAPI_stop(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+}
+
+
+
+/* 		Function name: papicount
+ * 		Purpose: Gets papi counters for SpMV operations
+ * 
+ * 		Inputs: Matrix pointers (mat_t), measurement variables, operating array pointers
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
+ */
+
+void papicount(int dim, mat_t *G, mat_t *GtranspCOO, double *tmp, long long dcmnorm, long long xdcmnorm, long long dcmtransp, long long xdcmtransp, long_long *values, double *dumm, int *limits, int nthreads, int EventSet, double *r, double *s){
+	
+	pzerovect(tmp, dim);
+	PAPI_reset(EventSet);
+	pmultMatVect_DUMM(tmp, G);
+	if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	xdcmnorm = values[0];
+	pzerovect(dumm, dim);
+	PAPI_reset(EventSet);
+	pmultMatVectCOO_DUMM(dumm, GtranspCOO, limits, nthreads);
+	if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	xdcmtransp = values[0];
+	
+	pzerovect(tmp, dim);
+	PAPI_reset(EventSet);
+	pmultMatVect(tmp, r, G);
+	if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	dcmnorm = values[0];
+	pzerovect(s, dim);
+	PAPI_reset(EventSet);
+	pmultMatVectCOO(s, tmp, GtranspCOO, limits, nthreads);
+	if (PAPI_read(EventSet, values) != PAPI_OK) {printf("\nPAPI ERROR!\n");}
+	dcmtransp = values[0];
+}
+
+
+
+/* 		Function name: inverseD
+ * 		Purpose: Gets diagonal values of a matrix and inverts them
+ * 
+ * 		Inputs: Matrix pointer (mat_t)
+ * 
+ * 		Outputs:
+ * 			- Matrix pointer (mat_t)
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
+ */
+
 mat_t *inverseD(mat_t *mat){
 	
-	unsigned int i = 0, j = 0;
+	int i = 0;
 	mat_t *D;
 	
 	D = malloc(sizeof(mat_t));
 	D->size = mat->size;
 	D->nnz = D->size;
 	D->values = malloc(D->nnz*sizeof(double));
-	D->cols = malloc(D->nnz*sizeof(unsigned int));
-	D->rows = malloc((D->size + 1)*sizeof(unsigned int));
+	D->cols = malloc(D->nnz*sizeof(int));
+	D->rows = malloc((D->size + 1)*sizeof(int));
 	
 	for (i = 0; i < D->size; i++){
-		for (j = mat->rows[i]; j < mat->rows[i + 1]; j++)
-		{
-			if (mat->cols[j] == i){
-				D->values[i] = 1.0/mat->values[j];
-			}
-		}
+		D->values[i] = 1.0/getvalue_mat(i, i, mat);
 		D->cols[i] = i;
 		D->rows[i + 1] = i + 1;
 	}
@@ -405,9 +642,22 @@ mat_t *inverseD(mat_t *mat){
 
 
 
+/* 		Function name: cg_construct
+ * 		Purpose: Solves Ax=b
+ * 
+ * 		Inputs: Matrix pointer (mat_t), array pointers (x, b), maximum number of iterations, tolerance 
+ * 
+ * 		Outputs:
+ * 			- Pointer to resulting X
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
+ */
+
 double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error){
 
-	int i = 0, j = 0;
+	int i = 0;
 	double *d;
 	double d_new = 0.0;
 	double *q;
@@ -416,36 +666,53 @@ double *cg_construct(mat_t *A, double *x, double *b, int maxiter, double error){
 	double d_old = 0.0;
 	double beta = 0.0;
 	double *tmp;
+	int dim = A->size;
 	
-	r = malloc(A->size*sizeof(double));
-	d = malloc(A->size*sizeof(double));
-	q = malloc(A->size*sizeof(double));
-	tmp = malloc(A->size*sizeof(double));
+	r = malloc(dim*sizeof(double));
+	d = malloc(dim*sizeof(double));
+	q = malloc(dim*sizeof(double));
+	tmp = malloc(dim*sizeof(double));
 	
-	multMatVect(tmp, x, A);
-	subtVects(b, tmp, r, A->size);
-	for (j = 0; j < A->size; j++) d[j] = r[j];
-	d_new = multVectVect(r, r, A->size);
-	double norm_b = multVectVect(b, b, A->size);
-	double norm_r = sqrt(multVectVect(r, r, A->size));
+	pmultMatVect(tmp, x, A);
+	psubtVects(b, tmp, r, dim);
+	pequalvects(d, r, dim);
+	d_new = pmultVectVect(r, r, dim);
+	double norm_b = pmultVectVect(b, b, dim);
+	double norm_r = sqrt(pmultVectVect(r, r, dim));
 	while ((i < maxiter)&&(norm_r/norm_b > error)){
-		multMatVect(q, d, A);
-		alpha = d_new / multVectVect(d, q, A->size);
-		scaleVect(alpha, d, tmp, A->size);
-		addToVect(x, tmp, A->size);
-		scaleVect(alpha, q, tmp, A->size);
-		subToVect(r, tmp, A->size);
+		pmultMatVect(q, d, A);
+		alpha = d_new / pmultVectVect(d, q, dim);
+		pscaleVect(alpha, d, tmp, dim);
+		paddToVect(x, tmp, dim);
+		pscaleVect(alpha, q, tmp, dim);
+		psubToVect(r, tmp, dim);
 		d_old = d_new;
-		d_new = multVectVect(r, r, A->size);
+		d_new = pmultVectVect(r, r, dim);
 		beta = d_new/d_old;
-		scaleVect(beta, d, tmp, A->size);
-		addVects(r, tmp, d, A->size);
-		norm_r = sqrt(multVectVect(r, r, A->size));
+		pscaleVect(beta, d, tmp, dim);
+		paddVects(r, tmp, d, dim);
+		norm_r = sqrt(pmultVectVect(r, r, dim));
 		i++;
 	}
 	free(r); free(d); free(q); free(tmp);
 	return x;
 }
+
+
+
+/* 		Function name: LUPDecompose
+ * 		Purpose: LU Decomposition
+ * 
+ * 		Inputs: Pointer of pointers to input matrix, size, tolerance, unit permutation matrix
+ * 
+ * 		Outputs:
+ * 			- 0 on failure
+ * 			- 1 on success
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
+ */
 
 int LUPDecompose(double **A, int N, double Tol, int *P) {
 
@@ -492,9 +759,21 @@ int LUPDecompose(double **A, int N, double Tol, int *P) {
 	return 1;  //decomposition done 
 }
 
-/* INPUT: A,P filled in LUPDecompose; b - rhs vector; N - dimension
- * OUTPUT: x - solution vector of A*x=b
+
+
+/* 		Function name: LUPSolve
+ * 		Purpose: Solves Ax=b with LU Decomposed matrix
+ * 
+ * 		Inputs: A,P filled in LUPDecompose; b - rhs vector; N - dimension
+ * 
+ * 		Outputs:
+ * 			- x - solution vector of A*x=b
+ * 
+ * 		TODO:
+ *
+ * 		Others: 
  */
+
 void LUPSolve(double **A, int *P, double *b, int N, double *x) {
 	
 	int i, k;
@@ -513,15 +792,33 @@ void LUPSolve(double **A, int *P, double *b, int N, double *x) {
 	}
 }
 
+
+
+/* 		Function name: precond
+ * 		Purpose: Obtains an approximate inverse G from a given matrix
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), Pointer to inverse (mat_t), Pointer to X array from general problem
+ * 
+ * 		Outputs:
+ * 			- Inverse matrix of A (G) with specific pattern
+ * 
+ * 		TODO:
+ * 
+ * 			- Clean code and maybe redesign
+ * 			- Work out way to filter G or not depending on user selection
+ *
+ * 		Others: Makes use of Lapack library, but could use implemented LUPD solver
+ */
+
 void precond(mat_t *mat, mat_t *G, double *xfinal){
 	
 	int i = 0, j = 0, k = 0;
 	
 	pat_t *pattern = malloc(sizeof(pat_t));
-	pattern->rows = calloc((G->size + 1), sizeof(unsigned int));
+	pattern->rows = calloc((G->size + 1), sizeof(int));
 	
 	pat_t *expanded_patt = malloc(sizeof(pat_t));
-	expanded_patt->rows = calloc((G->size + 1), sizeof(unsigned int));
+	expanded_patt->rows = calloc((G->size + 1), sizeof(int));
 	
 	// ---------------------------------------------------------------
 	
@@ -558,8 +855,8 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	
 	G->nnz = expanded_patt->nnz;
 	G->values = calloc(G->nnz, sizeof(double));
-	G->cols = malloc(G->nnz * sizeof(unsigned int));
-	G->rows = malloc((G->size + 1) * sizeof(unsigned int));
+	G->cols = malloc(G->nnz * sizeof(int));
+	G->rows = malloc((G->size + 1) * sizeof(int));
 	
 	//	3.
 	//	Compute nonzero entries in G
@@ -579,8 +876,8 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
 	for (i = 0; i < mat->size; i++){					// For every row in the matrix
 		
-		unsigned int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
-		unsigned int *arrayindex = calloc(rowelems, sizeof(unsigned int));
+		int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
+		int *arrayindex = calloc(rowelems, sizeof(int));
 		int n = rowelems, nrhs = 1, lda = rowelems, ldb = rowelems, info;
 		int ipiv[rowelems];
 		double *a = malloc(rowelems*rowelems*sizeof(double));
@@ -597,7 +894,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 			arrayindex[j - expanded_patt->rows[i]] = expanded_patt->cols[j];
 		}
 		
-		unsigned int poscount = 0;
+		int poscount = 0;
 		
 		/****************************************************************/
 		
@@ -615,78 +912,7 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		b[rowelems - 1] = 1.0;
 		b_res[rowelems - 1] = 1.0;
 		
-
-		
-// 		for (j = 0; j < rowelems; j++){					// Rows construct_mat
-// 			for (k = 0; k < rowelems; k++){				// Cols construct_mat
-// 				a[poscount] = getvalue_mat(arrayindex[j], arrayindex[k], powmat);
-// 				a_res[poscount] = a[poscount];
-// 				poscount++;
-// 			}
-// 			b[j] = getvalue_mat(arrayindex[j], arrayindex[rowelems - 1], mat);
-// 			b_res[j] = getvalue_mat(arrayindex[j], arrayindex[rowelems - 1], mat);
-// 		}
-		
-		
-		/****************************************************************/
-		
-		
-// 		if ((i >= 322) && (i < 323)){
-// 			printf("\n\n\t");
-// 			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
-// 			printf("\n\n");
-// 			
-// 			for (j = 0; j < rowelems; j++){					// Rows construct_mat
-// 				
-// 				printf("%i\t", arrayindex[j]);
-// 				for (k = 0; k < rowelems; k++){				// Cols construct_mat
-// 					printf("%.4lf\t", a[rowelems*j + k]);
-// 				}
-// 				printf("\n");
-// 			}
-// 		}
-// 		
-// 		
-// 		if ((i >= 322) && (i < 323)){
-// 			printf("\n\n\t");
-// 			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-// 			printf("\n");
-// 		}
-		
 		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
-		
-// 		if ((i >= 322) && (i < 323)){
-// 			printf("%i\t", i);
-// 			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-// 			printf("\n\n");
-// 		}
-// 		
-// 		
-// 		if ((i >= 322) && (i < 323)){
-// 			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
-// 				printf("%i\t", mat->cols[j]);
-// 				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
-// 					printf("%i\t", mat->cols[k]);
-// 				}
-// 				printf("\n");
-// 			}
-// 			printf("\n\n");
-// 		}
-		
-		
-// 		if ((i >= (mat->size - 1)) && (i < mat->size)){
-// 			char buf_x[256];
-// 			snprintf(buf_x, sizeof buf_x, "../Outputs/cg/DataCG/x.log");
-// 			FILE *log = fopen(buf_x, "w");
-// 			for ( int j = 0; j < rowelems; j++ ) {
-// 				fprintf(log, "%i\t%.8e\n", arrayindex[j], b[j]);
-// 			}
-// 			fclose(log);
-// 		}
-		
-		
-		
-		
 		
 		double norm_x = cblas_ddot(rowelems, b, 1, b, 1);
 		
@@ -769,11 +995,17 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	printf("\nINVERSE: Accumulated Residual: %.2e\n", totalresid);
 		
 	double *diag;
-	unsigned int diagcounter = 0, zerocounter = 0;
+	int diagcounter = 0, zerocounter = 0;
 	diag = calloc(G->size, sizeof(double));
-	double zero = 1E-10;
 	
-
+	double *diagvalue = calloc(G->size, sizeof(double));
+	
+	for (i = 0; i < G->size; i++){
+		diagvalue[i] = 1E-03*getvalue_mat(i, i, G);
+	}
+	
+	double zero = 1E-50;
+	
 	for (i = 0; i < G->size; i++){
 		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
 			if (G->cols[j] == i){diag[i] = sqrt(fabs(G->values[j]));}
@@ -783,7 +1015,9 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 		}
 	}
 	
+	
 	for (i = 0; i < G->size; i++){
+		zero = diagvalue[i];
 		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
 			G->values[j] = G->values[j]/diag[i];
 			if (fabs(G->values[j]) < zero) {
@@ -806,13 +1040,14 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	gnoz->size = G->size;
 	gnoz->nnz = G->nnz - zerocounter - diagcounter;
 	gnoz->values = calloc(gnoz->nnz, sizeof(double));
-	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
-	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
+	gnoz->cols = calloc(gnoz->nnz, sizeof(int));
+	gnoz->rows = calloc((gnoz->size + 1), sizeof(int));
 
 	
 	for (i = 0; i < G->size; i++){
+		zero = diagvalue[i];
 		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			if (fabs(G->values[j]) > zero) {
+			if (fabs(G->values[j]) > zero){
 				gnoz->values[counter] = G->values[j];
 				gnoz->cols[counter] = G->cols[j];
 				counter++;
@@ -827,58 +1062,43 @@ void precond(mat_t *mat, mat_t *G, double *xfinal){
 	
 	
 	fprintf(stderr, "%u -> %u\t%u -> ^%.2lf%%\n\n", pattern->nnz, counter, gnoz->nnz, 100.0 * (((double) gnoz->nnz - (double) pattern->nnz)/ (double) pattern->nnz));
-	
-	
-// 		4.
-// 		Drop small entries in G and rescale
-	
-	
-	
+
 	G->nnz = gnoz->nnz;
 	G->values = gnoz->values;
 	G->cols = gnoz->cols;
 	G->rows = gnoz->rows;
 	
-	
-	
-	
-	
-	
-	// OTHER STUFF
-	
-	char buf_res[256];
-	snprintf(buf_res, sizeof buf_res, "../Outputs/cg/DataCG/addedelems/res_%s_%i_%i.mtx", matname, percentpattern, patternpower);
-	FILE *testres= fopen(buf_res, "w");
-	double sum = 0.0;
-	int pos = 0;
-	double avg = 0.0;
-	for(i = 0; i < mat->size; i++){
-		sum += residrow[i];
-		if ((i%1000 == 0) && (i > 0)){
-			avg = sum;
-			fprintf(testres, "%i %.20lf\n", pos, avg);
-			pos++;
-			sum = 0.0;
-		}
-	}
-	fclose(testres);
-	
-	
+	free(diagvalue);
 	free(diag); free(pattern); free(expanded_patt); 
 	free(errorrow); free(residrow); free(errrow);
 }
 	
 	
 	
+/* 		Function name: transpose
+ * 		Purpose: Transposes a given matrix in CSR format
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), pointer to transposed matrix (mat_t)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- No nees to pass 2 pointers, return pointer
+ *
+ * 		Others: 
+ */
+
 void transpose(mat_t *G, mat_t *Gtransp){
 	
-	unsigned int i = 0, j = 0, k = 0;
-	unsigned int *contc = calloc(G->size, sizeof(unsigned int));
+	int i = 0, j = 0, k = 0;
+	int *contc = calloc(G->size, sizeof(int));
 	
 	Gtransp->nnz = G->nnz;
 	Gtransp->values = calloc(Gtransp->nnz, sizeof(double));
-	Gtransp->cols = calloc(Gtransp->nnz, sizeof(unsigned int));
-	Gtransp->rows = calloc((Gtransp->size + 1), sizeof(unsigned int));
+	Gtransp->cols = calloc(Gtransp->nnz, sizeof(int));
+	Gtransp->rows = calloc((Gtransp->size + 1), sizeof(int));
 	
 	for (i = 0; i < G->nnz; i++){contc[G->cols[i]] += 1;}
 	for (i = 1; i < G->size + 1; i++){
@@ -898,14 +1118,29 @@ void transpose(mat_t *G, mat_t *Gtransp){
 	
 	
 	
+/* 		Function name: transposeCSC
+ * 		Purpose: Transposes a given matrix in CSC format
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), pointer to transposed matrix (mat_t)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- No nees to pass 2 pointers, return pointer
+ *
+ * 		Others: 
+ */
+
 void transposeCSC(mat_t *G, mat_t *Gtransp){
 	
-	unsigned int i = 0;
+	int i = 0;
 	
 	Gtransp->nnz = G->nnz;
 	Gtransp->values = calloc(Gtransp->nnz, sizeof(double));
-	Gtransp->rows = calloc(Gtransp->nnz, sizeof(unsigned int));
-	Gtransp->cols = calloc((Gtransp->size + 1), sizeof(unsigned int));
+	Gtransp->rows = calloc(Gtransp->nnz, sizeof(int));
+	Gtransp->cols = calloc((Gtransp->size + 1), sizeof(int));
 	
 	for (i = 0; i < Gtransp->nnz; i++){
 		Gtransp->values = G->values;
@@ -918,15 +1153,31 @@ void transposeCSC(mat_t *G, mat_t *Gtransp){
 }
 	
 	
-void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned int nthreads){
 	
-	unsigned int i, j, k;
-	unsigned int counter = 0;
-	unsigned int sum = 0;
-	unsigned int *contr = calloc(Gtransp->size, sizeof(unsigned int));
-	unsigned int *rowlim = calloc(nthreads + 1, sizeof(unsigned int));
-	unsigned int *counterrows = calloc(nthreads, sizeof(unsigned int));
-	unsigned int elems = (unsigned int) ceil(((double) Gtransp->nnz) / ((double) nthreads));
+/* 		Function name: CSCtoCOO
+ * 		Purpose: Converts a CSC formatted matrix to COO block format to prepare it for Matrix Vector parallel multiplications. 
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), pointer to COO matrix (mat_t), pointer to array of limits, threads executing code
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- Check limits to exactly distribute load
+ *
+ * 		Others: 
+ */
+
+void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, int *limits, int nthreads){
+	
+	int i, j, k;
+	int counter = 0;
+	int sum = 0;
+	int *contr = calloc(Gtransp->size, sizeof(int));
+	int *rowlim = calloc(nthreads + 1, sizeof(int));
+	int *counterrows = calloc(nthreads, sizeof(int));
+	int elems = (int) ceil(((double) Gtransp->nnz) / ((double) nthreads));
 	
 	for (i = 0; i < Gtransp->nnz; i++){contr[Gtransp->rows[i]] += 1;}
 	
@@ -962,33 +1213,39 @@ void CSCtoCOO(mat_t *Gtransp, mat_t *GtranspCOO, unsigned int *limits, unsigned 
 }
 
 
-// Limits G to cache lines of A
-void filterG(mat_t *G, mat_t *A, unsigned int dim, double *r){
+
+
+/* 		Function name: filterG
+ * 		Purpose: Limits G to cache lines of A
+ * 
+ * 		Inputs: Pointer to matrix G (mat_t), pointer to matrix A (mat_t), size, Pointer to X array from general problem
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- No need to pass 2 pointers, return pointer
+ *
+ * 		Others: 
+ * 
+ * 			- We saw that doing this yields to no convergence, since we remove information
+ */
+
+void filterG(mat_t *G, mat_t *A, int dim, double *r){
 	
 	int i = 0, j = 0, k = 0, l = 0;
 	int cachecol = 0;
 	long long cacheline = 0;
-	unsigned int testcol = 0;
+	int testcol = 0;
 	int counter = 0;
 	
 	
 	mat_t *Gfinal = malloc(sizeof(mat_t));
 	Gfinal->size = dim;
 	Gfinal->nnz = G->nnz;
-	Gfinal->rows = calloc(dim + 1, sizeof(unsigned int));
-	Gfinal->cols = calloc(Gfinal->nnz, sizeof(unsigned int));
-	
-	printf("\n");
-	
-	for (i = dim - 10; i < dim; i++){
-		printf("%i\t", G->rows[i + 1]);
-		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			printf("%i\t", G->cols[j]);
-		}
-		printf("\n");
-	}
-	
-	printf("\n");
+	Gfinal->rows = calloc(dim + 1, sizeof(int));
+	Gfinal->cols = calloc(Gfinal->nnz, sizeof(int));
 	
 	for (i = 0; i < dim; i++){
 		for(j = A->rows[i]; j < A->rows[i + 1]; j++){
@@ -1025,47 +1282,54 @@ void filterG(mat_t *G, mat_t *A, unsigned int dim, double *r){
 	}
 	
 	Gfinal->nnz = counter;
-	Gfinal->cols = realloc(Gfinal->cols, Gfinal->nnz*sizeof(unsigned int));
+	Gfinal->cols = realloc(Gfinal->cols, Gfinal->nnz*sizeof(int));
 	
 	printf("Gvalues: %i\nGfinalvalues: %i\n\n", G->nnz, counter);
-	
-	
-	
-	printf("\n");
-	for (i = dim - 10; i < dim; i++){
-		printf("%i\t", Gfinal->rows[i + 1]);
-		for (j = Gfinal->rows[i]; j < Gfinal->rows[i + 1]; j++){
-			printf("%i\t", Gfinal->cols[j]);
-		}
-		printf("\n");
-	}
-	printf("\n");
 	
 	G->nnz = Gfinal->nnz;
 	G->cols = Gfinal->cols;
 	G->rows = Gfinal->rows;
 	
-	
-	
-	for (i = dim - 10; i < dim; i++){
-		printf("%i\t", G->rows[i + 1]);
-		for (j = G->rows[i]; j < G->rows[i + 1]; j++){
-			printf("%i\t", G->cols[j]);
-		}
-		printf("\n");
-	}
-	
-	printf("\n");
-	
-// 	free(Gfinal);
 }
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+/* FILTERING STUFF */
+
+
+
+/* 		Function name: sumupdown
+ * 		Purpose: Gets row positions of new filtered matrix combining upper and lower rows
+ * 
+ * 		Inputs: Pointer to matrix G (mat_t), pointer to array column positions (mat_t), row
+ * 
+ * 		Outputs:
+ * 			- elements of new row
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- Not used. Yields to a non-symmetric matrix
+ */
+
 int sumupdown(mat_t *A, int *col, int ract){
 	
 	int i = 0; 
-	unsigned int dim = A->size;
+	int dim = A->size;
 	int row = 0;
 	int elements = 1;
 	int counter = 0;
@@ -1094,7 +1358,7 @@ int sumupdown(mat_t *A, int *col, int ract){
 	
 	qsort(col, counter, sizeof(int), comp);
 	
-	unsigned int *tmpcol = calloc(counter, sizeof(int));
+	int *tmpcol = calloc(counter, sizeof(int));
 	tmpcol[0] = col[0];
 	
 	for (i = 1; i < counter; i++){
@@ -1118,17 +1382,27 @@ int sumupdown(mat_t *A, int *col, int ract){
 
 
 
-
-
-
-/* ------------------------- LLt Filter -------------------------- */
-/* ------------------------- LALtx = Lb -------------------------- */
-
+/* 		Function name: sumLLt
+ * 		Purpose: Gets row positions of new filtered matrix combining right side elements, lower row element and right side lower row element
+ * 
+ * 		Inputs: Pointer to matrix G (mat_t), pointer to array column positions (mat_t), row
+ * 
+ * 		Outputs:
+ * 			- elements of new row
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- Not used. Yields to a non-symmetric matrix
+ */
 
 int sumLLt(mat_t *A, int *col, int ract){
 	
 	int i = 0; 
-	unsigned int dim = A->size;
+	int dim = A->size;
 	int row = 0;
 	int elements = 1;
 	int counter = 0;
@@ -1157,7 +1431,7 @@ int sumLLt(mat_t *A, int *col, int ract){
 	
 	qsort(col, counter, sizeof(int), comp);
 	
-	unsigned int *tmpcol = calloc(counter, sizeof(int));
+	int *tmpcol = calloc(counter, sizeof(int));
 	tmpcol[0] = col[0];
 	
 	for (i = 1; i < counter; i++){
@@ -1179,15 +1453,33 @@ int sumLLt(mat_t *A, int *col, int ract){
 }
 
 
+
+/* 		Function name: smoothmatLLt
+ * 		Purpose: Smooths matrix using sumLLt filter
+ * 
+ * 		Inputs: Pointer to matrix A (mat_t) to be filtered
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
+
 void smoothmatLLt(mat_t *A){
 	
-	unsigned int dim = A->size;
+	int dim = A->size;
 	
-	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	int maxAsizemult = (A->nnz/A->size + 1) * 10;
 	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
 	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
 	int *storerows = calloc(dim + 1, sizeof(int));
-	unsigned int pos = 0;
+	int pos = 0;
 	int i = 0, j = 0;
 	int counter = 0;
 	
@@ -1260,15 +1552,15 @@ void smoothmatLLt(mat_t *A){
 	
 	
 	A->values = realloc(A->values, pos*sizeof(double));
-	A->cols = realloc(A->cols, pos*sizeof(unsigned int));
+	A->cols = realloc(A->cols, pos*sizeof(int));
 	
 	
 	for (i = 0; i < pos; i++){
 		A->values[i] = storevals[i];
-		A->cols[i] = (unsigned int) storecols[i];
+		A->cols[i] = (int) storecols[i];
 	}
 	
-	for (i = 0; i < (dim + 1); i++) A->rows[i] = (unsigned int) storerows[i];
+	for (i = 0; i < (dim + 1); i++) A->rows[i] = (int) storerows[i];
 	
 	A->nnz = pos;
 	
@@ -1304,15 +1596,33 @@ void smoothmatLLt(mat_t *A){
 
 
 
+
+/* 		Function name: smoothTOmatLLt
+ * 		Purpose: Smooths matrix using sumLLt filter and stores it to a filtered matrix
+ * 
+ * 		Inputs: Pointer to matrix A (mat_t) to be filtered, Pointer to matrix Af (mat_t)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
+
 void smoothTOmatLLt(mat_t *A, mat_t *Af){
 	
-	unsigned int dim = A->size;
+	int dim = A->size;
 	
-	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	int maxAsizemult = (A->nnz/A->size + 1) * 10;
 	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
 	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
 	int *storerows = calloc(dim + 1, sizeof(int));
-	unsigned int pos = 0;
+	int pos = 0;
 	int i = 0, j = 0;
 	int counter = 0;
 	
@@ -1385,16 +1695,16 @@ void smoothTOmatLLt(mat_t *A, mat_t *Af){
 	
 	
 	Af->values = calloc(pos, sizeof(double));
-	Af->cols = calloc(pos, sizeof(unsigned int));
-	Af->rows = calloc(dim + 1, sizeof(unsigned int));
+	Af->cols = calloc(pos, sizeof(int));
+	Af->rows = calloc(dim + 1, sizeof(int));
 	Af->size = dim;
 	
 	for (i = 0; i < pos; i++){
 		Af->values[i] = storevals[i];
-		Af->cols[i] = (unsigned int) storecols[i];
+		Af->cols[i] = (int) storecols[i];
 	}
 	
-	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (unsigned int) storerows[i];
+	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (int) storerows[i];
 	
 	Af->nnz = pos;
 	
@@ -1421,14 +1731,28 @@ void smoothTOmatLLt(mat_t *A, mat_t *Af){
 
 
 
-/* ------------------------- L Filter -------------------------- */
-/* ------------------------- LAx = Lb -------------------------- */
+/* 		Function name: sumL
+ * 		Purpose: Gets filtered positions using lower diagonal positions
+ * 
+ * 		Inputs: Pointer to matrix G (mat_t), pointer to array column positions (mat_t), row
+ * 
+ * 		Outputs:
+ * 			- elements of new row
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- Not used. Yields to a non-symmetric matrix
+ */
 
 
 int sumL(mat_t *A, int *col, int ract){
 	
 	int i = 0; 
-	unsigned int dim = A->size;
+	int dim = A->size;
 	int row = 0;
 	int elements = 1;
 	int counter = 0;
@@ -1449,7 +1773,7 @@ int sumL(mat_t *A, int *col, int ract){
 	
 	qsort(col, counter, sizeof(int), comp);
 	
-	unsigned int *tmpcol = calloc(counter, sizeof(int));
+	int *tmpcol = calloc(counter, sizeof(int));
 	tmpcol[0] = col[0];
 	
 	for (i = 1; i < counter; i++){
@@ -1472,15 +1796,32 @@ int sumL(mat_t *A, int *col, int ract){
 
 
 
+/* 		Function name: smoothmatL
+ * 		Purpose: Smooths matrix using sumL filter
+ * 
+ * 		Inputs: Pointer to matrix A (mat_t) to be filtered
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
+
 void smoothmatL(mat_t *A){
 	
-	unsigned int dim = A->size;
+	int dim = A->size;
 	
-	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	int maxAsizemult = (A->nnz/A->size + 1) * 10;
 	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
 	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
 	int *storerows = calloc(dim + 1, sizeof(int));
-	unsigned int pos = 0;
+	int pos = 0;
 	int i = 0, j = 0;
 	int counter = 0;
 	double zero = 1E-6;
@@ -1540,15 +1881,15 @@ void smoothmatL(mat_t *A){
 	
 	
 	A->values = realloc(A->values, pos*sizeof(double));
-	A->cols = realloc(A->cols, pos*sizeof(unsigned int));
+	A->cols = realloc(A->cols, pos*sizeof(int));
 	
 	
 	for (i = 0; i < pos; i++){
 		A->values[i] = storevals[i];
-		A->cols[i] = (unsigned int) storecols[i];
+		A->cols[i] = (int) storecols[i];
 	}
 	
-	for (i = 0; i < (dim + 1); i++) A->rows[i] = (unsigned int) storerows[i];
+	for (i = 0; i < (dim + 1); i++) A->rows[i] = (int) storerows[i];
 	
 	A->nnz = pos;
 	
@@ -1594,17 +1935,32 @@ void smoothmatL(mat_t *A){
 
 
 
-
+/* 		Function name: smoothTOmatL
+ * 		Purpose: Smooths matrix using sumL filter and stores it to a filtered matrix
+ * 
+ * 		Inputs: Pointer to matrix A (mat_t) to be filtered, Pointer to matrix Af (mat_t)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
 
 void smoothTOmatL(mat_t *A, mat_t *Af){
 	
-	unsigned int dim = A->size;
+	int dim = A->size;
 	
-	unsigned int maxAsizemult = (A->nnz/A->size + 1) * 10;
+	int maxAsizemult = (A->nnz/A->size + 1) * 10;
 	double *storevals = calloc(maxAsizemult*A->nnz, sizeof(double));
 	int *storecols = calloc(maxAsizemult*A->nnz, sizeof(int));
 	int *storerows = calloc(dim + 1, sizeof(int));
-	unsigned int pos = 0;
+	int pos = 0;
 	int i = 0, j = 0;
 	int counter = 0;
 	
@@ -1663,16 +2019,16 @@ void smoothTOmatL(mat_t *A, mat_t *Af){
 	
 	
 	Af->values = calloc(pos, sizeof(double));
-	Af->cols = calloc(pos, sizeof(unsigned int));
-	Af->rows = calloc(dim + 1, sizeof(unsigned int));
+	Af->cols = calloc(pos, sizeof(int));
+	Af->rows = calloc(dim + 1, sizeof(int));
 	Af->size = dim;
 	
 	for (i = 0; i < pos; i++){
 		Af->values[i] = storevals[i];
-		Af->cols[i] = (unsigned int) storecols[i];
+		Af->cols[i] = (int) storecols[i];
 	}
 	
-	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (unsigned int) storerows[i];
+	for (i = 0; i < (dim + 1); i++) Af->rows[i] = (int) storerows[i];
 	
 	Af->nnz = pos;
 	
@@ -1699,14 +2055,25 @@ void smoothTOmatL(mat_t *A, mat_t *Af){
 
 
 
+/* 		Function name: smootharrL
+ * 		Purpose: Smooths array using sumL filter and stores it to a filtered matrix
+ * 
+ * 		Inputs: Pointer to array b to be filtered, array size
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
 
 
-
-
-/* ------------------------- Array Filter -------------------------- */
-
-
-void smootharrL(double *b, unsigned int dim){
+void smootharrL(double *b, int dim){
 	
 	double *storevals = calloc(dim, sizeof(double));
 	
@@ -1731,7 +2098,25 @@ void smootharrL(double *b, unsigned int dim){
 }
 
 
-void backsmootharrLt(double *b, unsigned int dim){
+
+/* 		Function name: backsmootharrLt
+ * 		Purpose: Reverse smoothing process for arrays
+ * 
+ * 		Inputs: Pointer to array b to be filtered, array size
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
+
+void backsmootharrLt(double *b, int dim){
 	
 	double *storevals = calloc(dim, sizeof(double));
 	
@@ -1758,7 +2143,24 @@ void backsmootharrLt(double *b, unsigned int dim){
 
 
 
-void backsmootharrLtV2(double *b, unsigned int dim, unsigned int *arrayindex){
+/* 		Function name: backsmootharrLtV2
+ * 		Purpose: Reverse smoothing process for arrays
+ * 
+ * 		Inputs: Pointer to array b to be filtered, array size
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- To use only in filtered preconditioner function ()
+ */
+
+void backsmootharrLtV2(double *b, int dim, int *arrayindex){
 	
 	double *storevals = calloc(dim, sizeof(double));
 	
@@ -1791,8 +2193,24 @@ void backsmootharrLtV2(double *b, unsigned int dim, unsigned int *arrayindex){
 
 
 
+/* 		Function name: solveLU
+ * 		Purpose: LU solver 
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), size, array b (Ax=b)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
 
-void solveLU(mat_t *A, unsigned int dim, double *b){
+void solveLU(mat_t *A, int dim, double *b){
 	
 	int i, j;
 	int rowelems = (int) dim;
@@ -1818,38 +2236,31 @@ void solveLU(mat_t *A, unsigned int dim, double *b){
 		}
 	}
 	
-	
-// 	for (i = 0; i < dim; i++){
-// 		for (j = 0; j < dim; j++){
-// 			printf("%.4lf\t", a[dim*i + j]);
-// 		}
-// 		printf("\n");
-// 	}
-
-	printf("V1\n");
-	printarr(b, dim);
-	
 	dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
 	
-	printf("V2\n");
-	printarr(b, dim);
-	
-// 	printf("INFO: %i\n", info);
 }
 
 
 
 
+/* 		Function name: impLU
+ * 		Purpose: Implemented LU solver: Matrix conversion
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), size, array b (Ax=b)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- 
+ *
+ * 		Others: 
+ * 
+ * 			- 
+ */
 
-
-
-
-
-
-
-
-
-void impLU(mat_t *A, unsigned int dim, double *b){
+void impLU(mat_t *A, int dim, double *b){
 	
 	int i, j;
 	int rowelems = (int) dim;
@@ -1873,8 +2284,6 @@ void impLU(mat_t *A, unsigned int dim, double *b){
 		}
 	}
 	
-
-
 	int counter = 0;
 	double **Ap = malloc(rowelems*sizeof(double*));
 	double tol = 1E-16;
@@ -1901,108 +2310,32 @@ void impLU(mat_t *A, unsigned int dim, double *b){
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/* 		Function name: precond_vf
+ * 		Purpose: Preconditioner for filtered cases. Exactly the same as precond but with filtering options
+ * 
+ * 		Inputs: Pointer to matrix (mat_t), size, array b (Ax=b)
+ * 
+ * 		Outputs:
+ * 			- void
+ * 
+ * 		TODO:
+ * 
+ * 			- Adapt to use with another variable (not rhs)
+ *
+ * 		Others: 
+ * 
+ * 			- (Not in use)
+ */
 
 void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 	
 	int i = 0, j = 0, k = 0;
 	
 	pat_t *pattern = malloc(sizeof(pat_t));
-	pattern->rows = calloc((G->size + 1), sizeof(unsigned int));
+	pattern->rows = calloc((G->size + 1), sizeof(int));
 	
 	pat_t *expanded_patt = malloc(sizeof(pat_t));
-	expanded_patt->rows = calloc((G->size + 1), sizeof(unsigned int));
+	expanded_patt->rows = calloc((G->size + 1), sizeof(int));
 	
 	mat_t *Af = malloc(sizeof(mat_t));
 	
@@ -2061,8 +2394,8 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 	
 	G->nnz = expanded_patt->nnz;
 	G->values = calloc(G->nnz, sizeof(double));
-	G->cols = malloc(G->nnz * sizeof(unsigned int));
-	G->rows = malloc((G->size + 1) * sizeof(unsigned int));
+	G->cols = malloc(G->nnz * sizeof(int));
+	G->rows = malloc((G->size + 1) * sizeof(int));
 	
 	//	3.
 	//	Compute nonzero entries in G
@@ -2082,8 +2415,8 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 // 	#pragma omp parallel for private(j, k) reduction(+:totalresid)
 	for (i = 0; i < mat->size; i++){					// For every row in the matrix
 		
-		unsigned int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
-		unsigned int *arrayindex = calloc(rowelems, sizeof(unsigned int));
+		int rowelems = expanded_patt->rows[i + 1] - expanded_patt->rows[i];
+		int *arrayindex = calloc(rowelems, sizeof(int));
 		int n = rowelems, nrhs = 1, lda = rowelems, ldb = rowelems, info;
 		int ipiv[rowelems];
 		double *a = malloc(rowelems*rowelems*sizeof(double));
@@ -2099,7 +2432,7 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 			arrayindex[j - expanded_patt->rows[i]] = expanded_patt->cols[j];
 		}
 		
-		unsigned int poscount = 0;
+		int poscount = 0;
 		
 		/****************************************************************/
 		
@@ -2122,49 +2455,7 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 			smootharrL(b_res, rowelems);
 		}
 		
-		if ((i >= 32200) && (i < 32201)){
-			printf("\n\n\t");
-			for (j = 0; j < rowelems; j++){printf("%i\t", arrayindex[j]);}
-			printf("\n\n");
-			
-			for (j = 0; j < rowelems; j++){					// Rows construct_mat
-				
-				printf("%i\t", arrayindex[j]);
-				for (k = 0; k < rowelems; k++){				// Cols construct_mat
-					printf("%.4lf\t", a[rowelems*j + k]);
-				}
-				printf("\n");
-			}
-		}
-		
-		
-		if ((i >= 32200) && (i < 32201)){
-			printf("\n\n\t");
-			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-			printf("\n");
-		}
-		
 		dgesv( &n, &nrhs, a, &lda, ipiv, b, &ldb, &info );
-		
-		if ((i >= 32200) && (i < 32201)){
-			printf("%i\t", i);
-			for (j = 0; j < rowelems; j++) printf("%.4lf\t", b[j]);
-			printf("\n\n");
-		}
-		
-		
-		if ((i >= 32200) && (i < 32201)){
-			for (j = mat->rows[i]; j < mat->rows[i + 1]; j++){
-				printf("%i\t", mat->cols[j]);
-				for (k = mat->rows[mat->cols[j]]; k < mat->rows[mat->cols[j] + 1]; k++){
-					printf("%i\t", mat->cols[k]);
-				}
-				printf("\n");
-			}
-			printf("\n\n");
-		}
-		
-		
 		
 		double norm_x = cblas_ddot(rowelems, b, 1, b, 1);
 		
@@ -2207,7 +2498,7 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 		
 		
 	double *diag;
-	unsigned int diagcounter = 0, zerocounter = 0;
+	int diagcounter = 0, zerocounter = 0;
 	diag = calloc(G->size, sizeof(double));
 	double zero = 1E-10;
 	
@@ -2244,8 +2535,8 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 	gnoz->size = G->size;
 	gnoz->nnz = G->nnz - zerocounter - diagcounter;
 	gnoz->values = calloc(gnoz->nnz, sizeof(double));
-	gnoz->cols = calloc(gnoz->nnz, sizeof(unsigned int));
-	gnoz->rows = calloc((gnoz->size + 1), sizeof(unsigned int));
+	gnoz->cols = calloc(gnoz->nnz, sizeof(int));
+	gnoz->rows = calloc((gnoz->size + 1), sizeof(int));
 
 	
 	for (i = 0; i < G->size; i++){
@@ -2276,32 +2567,6 @@ void precond_vf(mat_t *mat, mat_t *G, double *xfinal){
 	G->values = gnoz->values;
 	G->cols = gnoz->cols;
 	G->rows = gnoz->rows;
-	
-	
-	
-	
-	
-	
-	// OTHER STUFF
-	
-	char buf_res[256];
-	snprintf(buf_res, sizeof buf_res, "../Outputs/cg/DataCG/addedelems/res_%s_%i_%i.mtx", matname, percentpattern, patternpower);
-	FILE *testres= fopen(buf_res, "w");
-	double sum = 0.0;
-	int pos = 0;
-	double avg = 0.0;
-	for(i = 0; i < mat->size; i++){
-		sum += residrow[i];
-		if ((i%1000 == 0) && (i > 0)){
-			avg = sum;
-			fprintf(testres, "%i %.20lf\n", pos, avg);
-			pos++;
-			sum = 0.0;
-		}
-	}
-	fclose(testres);
-	
-	
 	
 	free(diag); free(pattern); free(expanded_patt); 
 	free(errorrow); free(residrow); free(errrow);

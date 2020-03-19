@@ -1,4 +1,4 @@
- 
+
 #ifndef __CG_PATTERNS_H__
 #define __CG_PATTERNS_H__
 
@@ -18,7 +18,7 @@ void perclt(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void powerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void powerAf(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
 void OptpowerA(mat_t *mat, pat_t *pattern, pat_t *expanded_patt, double *xfinal);
-void poweredA(mat_t *mat, unsigned int dim);
+void poweredA(mat_t *mat, int dim);
 
 
 #endif // __CG_PATTERNS_H__

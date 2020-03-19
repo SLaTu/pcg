@@ -30,48 +30,44 @@
 
 typedef struct sparse_matrix {
 
-	unsigned int size, nnz;
-	unsigned int *rows, *cols;
+	int size, nnz;
+	int *rows, *cols;
 	double *values; 
 
 } mat_t;
 
 typedef struct pattern_matrix {
 
-	unsigned int *rows;
-	unsigned int *cols;
-	unsigned int nnz;
+	int *rows;
+	int *cols;
+	int nnz;
 	
 } pat_t;
 
-void multMatVect(double *tmp, double *vect, mat_t *mat);
-void multMatVectCSC(double *tmp, double *vect, mat_t *mat);
-void zerovect(double *vect, unsigned int max);
-double multVectVect(double *V1, double *V2, unsigned int max);
-void scaleVect(double scalar, double *V1, double *tmp, unsigned int max);
-void addToVect(double *V1, double *V2, unsigned int max);
-void subToVect(double *V1, double *V2, unsigned int max);
-void addVects(double *V1, double *V2, double *Vres, unsigned int max);
-void subtVects(double *V1, double *V2, double *result, unsigned int max);
-double getvalue_mat(unsigned int row, unsigned int col, mat_t *mat);
-double getvalue_matCSC(unsigned int row, unsigned int col, mat_t *mat);
 
+static inline __attribute__((always_inline)) double rnum(){
+	return (double)rand()/(double)RAND_MAX;
+}
 
+double getvalue_mat(int row, int col, mat_t *mat);
+double getvalue_matCSC(int row, int col, mat_t *mat);
 
 void pmultMatVect(double *tmp, double *vect, mat_t *mat);
 void pmultMatVectCSC(double *tmp, double *vect, mat_t *mat);
-void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, unsigned int *limits, unsigned int nthreads);
+void pmultMatVectCOO(double *tmp, double *vect, mat_t *mat, int *limits, int nthreads);
 void pmultMatVect_DUMM(double *tmp, mat_t *mat);
 void pmultMatVectCSC_DUMM(double *tmp, mat_t *mat);
-void pmultMatVectCOO_DUMM(double *tmp, mat_t *mat, unsigned int *limits, unsigned int nthreads);
-void pcopyvect(double *IN, double *OUT, unsigned int max);
-void pzerovect(double *vect, unsigned int max);
-double pmultVectVect(double *V1, double *V2, unsigned int max);
-void pscaleVect(double scalar, double *V1, double *tmp, unsigned int max);
-void paddToVect(double *V1, double *V2, unsigned int max);
-void psubToVect(double *V1, double *V2, unsigned int max);
-void paddVects(double *V1, double *V2, double *Vres, unsigned int max);
-void psubtVects(double *V1, double *V2, double *result, unsigned int max);
-void pequalvects(double *V1, double *V2, unsigned int max);
+void pmultMatVectCOO_DUMM(double *tmp, mat_t *mat, int *limits, int nthreads);
+void pcopyvect(double *IN, double *OUT, int max);
+void pzerovect(double *vect, int max);
+double pmultVectVect(double *V1, double *V2, int max);
+void pscaleVect(double scalar, double *V1, double *tmp, int max);
+void paddToVect(double *V1, double *V2, int max);
+void psubToVect(double *V1, double *V2, int max);
+void paddVects(double *V1, double *V2, double *Vres, int max);
+void psubtVects(double *V1, double *V2, double *result, int max);
+void pequalvects(double *V1, double *V2, int max);
+void cleararrays(double *r, double *rold, double *d, double *q, double *s, double *tmp, double *x, int dim);
+void clearlogs(double *elapses, double *residuals, int imax);
 
 #endif // __CG_BASICS_H__ 
